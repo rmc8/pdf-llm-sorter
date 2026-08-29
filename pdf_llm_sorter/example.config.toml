@@ -1,0 +1,8 @@
+[ollama]
+base_url="http://localhost:11434"
+ocr_model=""
+chat_model=""
+
+[prompt]
+system_prompt="""
+"""
