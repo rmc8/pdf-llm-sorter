@@ -4,7 +4,7 @@ from pathlib import Path
 import tomllib
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class OllamaConfig(BaseModel):
@@ -27,11 +27,29 @@ class PromptConfig(BaseModel):
     system_prompt: str = Field(default="", description="分類用のシステムプロンプト")
 
 
+class FileSystemConfig(BaseModel):
+    """ファイル入出力・フォルダ設定"""
+
+    input_folder: str = Field(
+        default="./input", description="処理対象のPDFファイルが配置される入力フォルダ"
+    )
+    output_folder: str = Field(
+        default="./output",
+        description="分類・リネーム後のPDFファイルを配置する出力フォルダ",
+        validation_alias=AliasChoices("output_folder", "ouput_folder"),
+    )
+    categories: list[str] = Field(
+        default_factory=list,
+        description="分類先フォルダのカテゴリ候補リスト（指定された場合、LLMはこの中から選択）",
+    )
+
+
 class AppConfig(BaseModel):
     """アプリケーション全体の設定"""
 
     ollama: OllamaConfig = Field(default_factory=OllamaConfig)
     prompt: PromptConfig = Field(default_factory=PromptConfig)
+    file_system: FileSystemConfig = Field(default_factory=FileSystemConfig)
 
 
 def load_config(config_path: Path | str | None = None) -> AppConfig:
@@ -62,6 +80,13 @@ def load_config(config_path: Path | str | None = None) -> AppConfig:
     try:
         with open(path, "rb") as f:
             data: dict[str, Any] = tomllib.load(f)
+
+        # スペルミス (ouput_folder) が含まれている場合の互換性フォールバック
+        if "file_system" in data and isinstance(data["file_system"], dict):
+            fs = data["file_system"]
+            if "ouput_folder" in fs and "output_folder" not in fs:
+                fs["output_folder"] = fs["ouput_folder"]
+
         return AppConfig.model_validate(data)
     except Exception as e:
         raise ValueError(f"設定ファイル ({path}) の読み込みに失敗しました: {e}") from e

@@ -1,8 +1,22 @@
 [ollama]
-base_url="http://localhost:11434"
-ocr_model=""
-chat_model=""
+base_url = "http://localhost:11434"
+ocr_model = "deepseek-ocr:latest"
+chat_model = "qwen3.5:latest"
 
 [prompt]
-system_prompt="""
+system_prompt = """あなたはPDFドキュメントの整理・分類を専門とするAIアシスタントです。
+提供されたドキュメントのテキスト内容を詳細に解析し、ファイルの適切な配置先カテゴリと分かりやすいリネーム後ファイル名を決定してください。
 """
+
+[file_system]
+input_folder = "./input"
+output_folder = "./output"
+categories = [
+    "契約書・住まい",
+    "請求書・領収書",
+    "税金・公的書類",
+    "給与・年金・保険",
+    "医療・健康診断",
+    "銀行・金融・投資",
+    "その他",
+]
