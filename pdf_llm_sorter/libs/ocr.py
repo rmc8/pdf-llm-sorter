@@ -63,19 +63,27 @@ class OllamaOCRClient:
         self,
         base_url: str = "http://localhost:11434",
         model: str = "deepseek-ocr:latest",
-        timeout: float = 180.0,
+        timeout: float = 60.0,
+        max_retries: int = 1,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.timeout = timeout
+        self.max_retries = max_retries
 
     @classmethod
     def from_config(
-        cls, config: OllamaConfig, timeout: float = 180.0
+        cls, config: OllamaConfig, timeout: float | None = None
     ) -> OllamaOCRClient:
         """OllamaConfig からインスタンスを生成します。"""
         model = config.ocr_model or "deepseek-ocr:latest"
-        return cls(base_url=config.base_url, model=model, timeout=timeout)
+        req_timeout = timeout if timeout is not None else config.timeout
+        return cls(
+            base_url=config.base_url,
+            model=model,
+            timeout=req_timeout,
+            max_retries=config.max_retries,
+        )
 
     def extract_from_image_bytes(
         self,
@@ -110,7 +118,7 @@ class OllamaOCRClient:
         return self.extract_from_image_bytes(image_bytes, prompt)
 
     def _call_generate_api(self, image_base64: str, prompt: str) -> str:
-        """Ollama の /api/generate エンドポイントを呼び出します。"""
+        """Ollama の /api/generate エンドポイントを呼び出します（リトライ対応）。"""
         url = f"{self.base_url}/api/generate"
         payload: dict[str, Any] = {
             "model": self.model,
@@ -119,24 +127,44 @@ class OllamaOCRClient:
             "stream": False,
         }
 
-        logger.debug("Ollama OCR API 呼び出し: %s (model=%s)", url, self.model)
+        total_attempts = self.max_retries + 1
+        for attempt in range(1, total_attempts + 1):
+            logger.debug(
+                "Ollama OCR API 呼び出し (試行 %d/%d): %s (model=%s, timeout=%.1fs)",
+                attempt,
+                total_attempts,
+                url,
+                self.model,
+                self.timeout,
+            )
 
-        with httpx.Client(timeout=self.timeout) as client:
-            response = client.post(url, json=payload)
-            if response.status_code != 200:
-                error_detail = response.text
-                logger.error(
-                    "Ollama API エラー (ステータス %d): %s",
-                    response.status_code,
-                    error_detail,
-                )
-                raise RuntimeError(
-                    f"Ollama OCR API エラー ({response.status_code}): {error_detail}"
-                )
+            try:
+                with httpx.Client(timeout=self.timeout) as client:
+                    response = client.post(url, json=payload)
+                    if response.status_code != 200:
+                        error_detail = response.text
+                        raise RuntimeError(
+                            f"Ollama OCR API エラー ({response.status_code}): {error_detail}"
+                        )
 
-            data = response.json()
-            extracted_text = data.get("response", "").strip()
-            return extracted_text
+                    data = response.json()
+                    extracted_text = data.get("response", "").strip()
+                    return extracted_text
+            except Exception as e:
+                if attempt < total_attempts:
+                    logger.warning(
+                        "OCR 呼び出しに失敗しました (試行 %d/%d)。1秒後に再試行します: %s",
+                        attempt,
+                        total_attempts,
+                        e,
+                    )
+                else:
+                    logger.error(
+                        "OCR 呼び出しが最大試行回数 (%d 回) に達しました: %s",
+                        total_attempts,
+                        e,
+                    )
+                    raise
 
 
 def render_pdf_page_to_image(page: pymupdf.Page, dpi: int = 150) -> Image.Image:
@@ -204,9 +232,7 @@ def extract_text_from_pdf(
     page_results: list[PageOCRResult] = []
 
     pages_to_process = (
-        min(total_pages, max_pages)
-        if max_pages and max_pages > 0
-        else total_pages
+        min(total_pages, max_pages) if max_pages and max_pages > 0 else total_pages
     )
 
     if pages_to_process < total_pages:

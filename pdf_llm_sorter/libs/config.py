@@ -19,6 +19,12 @@ class OllamaConfig(BaseModel):
     chat_model: str = Field(
         default="", description="テキスト分類・推論に使用するモデル名"
     )
+    timeout: float = Field(
+        default=60.0, description="Ollama APIリクエストのタイムアウト秒数"
+    )
+    max_retries: int = Field(
+        default=1, description="API通信エラー・タイムアウト時の最大リトライ回数"
+    )
 
 
 class PromptConfig(BaseModel):

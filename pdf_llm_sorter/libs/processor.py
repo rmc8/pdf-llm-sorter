@@ -250,7 +250,9 @@ class DocumentProcessor:
         results: list[ProcessResult] = []
         try:
             for idx, file_path in enumerate(targets, 1):
-                logger.info("[%d/%d] ファイル処理中: %s", idx, len(targets), file_path.name)
+                logger.info(
+                    "[%d/%d] ファイル処理中: %s", idx, len(targets), file_path.name
+                )
                 if progress_callback:
                     progress_callback(idx, len(targets), file_path, "処理開始")
                 res = self.process_file(

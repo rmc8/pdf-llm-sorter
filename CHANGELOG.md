@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - TOML 形式の設定ファイル読み込み（`config.toml`）
   - 実用的なサンプルカテゴリー定義を含む `example.config.toml`
 - **エラーハンドリング & 安全機構の強化**:
+  - タイムアウト制御 & 自動リトライ: LLM推論およびOCR処理に明示的な `timeout`（デフォルト60秒）を設定し、通信異常やフリーズ時に最大 `max_retries`（デフォルト1回）自動再試行して安定性を大幅向上
+  - 高速化チューニング: LLMパラメータを `temperature=0.0` に最適化し、最短ステップで決定論的かつ高速なJSON出力を実現
   - トークン上限・コンテキストあふれ防止: `max_chars_per_doc` による長文テキストのスマートサンプリング（先頭70%・末尾30%の重要情報保持）
   - PDF解析ページ数制限: `max_pages_per_pdf` による巨大PDFの先頭ページ抽出制御
   - 中断時ログ保護: `try ... finally` 構造により、`Ctrl+C` や例外中断時でも処理済みレコードを確実に CSV / TSV ログに書き出し

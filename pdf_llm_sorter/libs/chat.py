@@ -125,8 +125,10 @@ class OllamaChatClassifier:
         model: str = "qwen3.5:latest",
         system_prompt: str = "",
         categories: list[str] | dict[str, str] | None = None,
-        temperature: float = 0.1,
+        temperature: float = 0.0,
         max_chars_per_doc: int = 6000,
+        timeout: float = 60.0,
+        max_retries: int = 1,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -134,13 +136,16 @@ class OllamaChatClassifier:
         self.system_prompt = render_system_prompt(system_prompt, self.categories)
         self.temperature = temperature
         self.max_chars_per_doc = max_chars_per_doc
+        self.timeout = timeout
+        self.max_retries = max_retries
 
-        # JSON 出力モードで初期化
+        # JSON 出力モードで初期化（明示的なタイムアウトを指定）
         self.llm = ChatOllama(
             base_url=self.base_url,
             model=self.model,
             temperature=self.temperature,
             format="json",
+            request_timeout=self.timeout,
         )
 
     @classmethod
@@ -169,6 +174,8 @@ class OllamaChatClassifier:
             system_prompt=sys_prompt,
             categories=categories,
             max_chars_per_doc=max_chars,
+            timeout=ollama_cfg.timeout,
+            max_retries=ollama_cfg.max_retries,
         )
 
     def classify_document(
@@ -177,7 +184,7 @@ class OllamaChatClassifier:
         original_filename: str = "",
         additional_instructions: str = "",
     ) -> FileModel:
-        """OCR抽出テキストを解析し、FileModel（リネーム名・配置先等）の構造化データを返します。"""
+        """OCR抽出テキストを解析し、FileModel（リネーム名・配置先等）の構造化データを返します（リトライ対応）。"""
         # トークンあふれ防止のためのテキスト切り詰め
         safe_text = truncate_document_text(
             document_text, max_chars=self.max_chars_per_doc
@@ -211,33 +218,55 @@ class OllamaChatClassifier:
             HumanMessage(content=user_content),
         ]
 
-        logger.info(
-            "Ollama 分類推論を開始 (model=%s, 入力文字数=%d)...",
-            self.model,
-            len(document_text),
-        )
-
-        response = self.llm.invoke(messages)
-        raw_content = str(response.content)
-        json_str = clean_json_markdown(raw_content)
-
-        try:
-            data: dict[str, Any] = json.loads(json_str)
-            result = FileModel.model_validate(data)
-        except Exception as e:
-            logger.warning(
-                "JSONパースエラーのためLangChain構造化出力にフォールバックします: %s",
-                e,
+        total_attempts = self.max_retries + 1
+        for attempt in range(1, total_attempts + 1):
+            logger.info(
+                "Ollama 分類推論を開始 (試行 %d/%d, model=%s, 入力文字数=%d, timeout=%.1fs)...",
+                attempt,
+                total_attempts,
+                self.model,
+                len(document_text),
+                self.timeout,
             )
-            structured_llm = self.llm.with_structured_output(FileModel)
-            result = structured_llm.invoke(messages)
 
-        logger.info(
-            "分類完了 -> ファイル名: '%s', カテゴリ: '%s'",
-            result.file_name,
-            result.category,
-        )
-        return result
+            try:
+                response = self.llm.invoke(messages)
+                raw_content = str(response.content)
+                json_str = clean_json_markdown(raw_content)
+
+                try:
+                    data: dict[str, Any] = json.loads(json_str)
+                    result = FileModel.model_validate(data)
+                except Exception as parse_err:
+                    logger.warning(
+                        "JSON直接パースエラーのためLangChain構造化出力にフォールバックします: %s",
+                        parse_err,
+                    )
+                    structured_llm = self.llm.with_structured_output(FileModel)
+                    result = structured_llm.invoke(messages)
+
+                logger.info(
+                    "分類完了 -> ファイル名: '%s', カテゴリ: '%s'",
+                    result.file_name,
+                    result.category,
+                )
+                return result
+
+            except Exception as e:
+                if attempt < total_attempts:
+                    logger.warning(
+                        "分類推論に失敗しました (試行 %d/%d)。再試行します: %s",
+                        attempt,
+                        total_attempts,
+                        e,
+                    )
+                else:
+                    logger.error(
+                        "分類推論が最大試行回数 (%d 回) に達しました: %s",
+                        total_attempts,
+                        e,
+                    )
+                    raise
 
     def generate_structured(
         self,

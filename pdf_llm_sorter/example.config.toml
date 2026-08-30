@@ -2,6 +2,8 @@
 base_url = "http://localhost:11434"
 ocr_model = "deepseek-ocr:latest"
 chat_model = "qwen3.5:latest"
+timeout = 60.0                       # APIリクエストのタイムアウト秒数
+max_retries = 1                     # 通信エラーやタイムアウト発生時の自動リトライ回数
 
 [prompt]
 system_prompt = """あなたはPDFドキュメントの整理・分類を専門とするAIアシスタントです。
