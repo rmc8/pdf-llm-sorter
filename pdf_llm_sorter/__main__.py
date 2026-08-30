@@ -7,11 +7,11 @@ import logging
 from pathlib import Path
 from typing import Annotated
 
+import typer
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.table import Table
-import typer
 
 from pdf_llm_sorter.libs.config import AppConfig, load_config
 from pdf_llm_sorter.libs.processor import DocumentProcessor, ProcessResult
@@ -182,7 +182,7 @@ def run(
         logger.debug("設定内容:\n%s", config.model_dump_json(indent=2))
     except Exception as e:
         logger.error("設定ファイルの読み込みに失敗しました: %s", e)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     # CLI 引数による設定の上書き
     if output:
@@ -223,12 +223,13 @@ def run(
         console.print(
             "[bold yellow]⚠ ユーザーによって処理が中断されました。[/bold yellow]"
         )
-        raise typer.Exit(code=130)
+        raise typer.Exit(code=130) from None
     except typer.Exit:
         raise
     except Exception as e:
         logger.error("処理中に予期せぬエラーが発生しました: %s", e, exc_info=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
+
 
 
 def main() -> None:

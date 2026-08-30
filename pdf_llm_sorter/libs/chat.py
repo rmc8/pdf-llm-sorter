@@ -110,7 +110,7 @@ class OllamaChatClassifier:
         cls,
         config: AppConfig | OllamaConfig,
         prompt_config: PromptConfig | None = None,
-    ) -> "OllamaChatClassifier":
+    ) -> OllamaChatClassifier:
         """設定オブジェクトからインスタンスを生成します。"""
         categories: list[str] | dict[str, str] = []
         if isinstance(config, AppConfig):

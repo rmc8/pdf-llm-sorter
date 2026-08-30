@@ -72,7 +72,7 @@ class OllamaOCRClient:
     @classmethod
     def from_config(
         cls, config: OllamaConfig, timeout: float = 180.0
-    ) -> "OllamaOCRClient":
+    ) -> OllamaOCRClient:
         """OllamaConfig からインスタンスを生成します。"""
         model = config.ocr_model or "deepseek-ocr:latest"
         return cls(base_url=config.base_url, model=model, timeout=timeout)

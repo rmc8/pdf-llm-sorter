@@ -2,9 +2,9 @@
 
 import tomllib
 from pathlib import Path
+from typing import Any, Literal
 
 from pydantic import AliasChoices, BaseModel, Field
-from typing_extensions import Any, Literal
 
 
 class OllamaConfig(BaseModel):
