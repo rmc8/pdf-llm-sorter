@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Rich `Progress` によるリアルタイムな進捗バー（件数・パーセンテージ・経過時間）および現在フェーズ（OCR・LLM推論・ファイル配置）のステータス表示
   - `pdf-llm-sorter` コマンドエントリーポイントの提供
 - **安全・柔軟な実行オプション**:
+  - 対象ファイルを PDF（`.pdf`）に特化し、安定したテキスト抽出と高速なドキュメント整理を実現
   - コピーモード（`--copy`、デフォルト）と移動モード（`--move`）の選択
   - 実際のファイル操作を行わずに結果を検証できるシミュレーションモード（`-n, --dry-run`）
   - サブディレクトリの再帰的走査（`-r, --recursive`）

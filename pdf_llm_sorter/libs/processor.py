@@ -17,9 +17,8 @@ from pdf_llm_sorter.libs.ocr import OllamaOCRClient, extract_text_from_pdf
 
 logger = logging.getLogger("pdf_llm_sorter.processor")
 
-SUPPORTED_PDF_EXTENSIONS = {".pdf"}
-SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".tiff", ".bmp"}
-ALL_SUPPORTED_EXTENSIONS = SUPPORTED_PDF_EXTENSIONS | SUPPORTED_IMAGE_EXTENSIONS
+SUPPORTED_EXTENSIONS = {".pdf"}
+ALL_SUPPORTED_EXTENSIONS = SUPPORTED_EXTENSIONS
 
 # 進捗コールバック型: (現在のインデックス, 総ファイル数, 対象ファイルパス, 現在のフェーズ説明)
 ProgressCallback = Callable[[int, int, Path, str], None]
@@ -123,21 +122,18 @@ class DocumentProcessor:
         return unique_targets
 
     def extract_text(self, file_path: Path) -> str:
-        """ファイル形式に応じたテキスト抽出を実行します。"""
+        """PDFファイルからのテキスト抽出（埋め込みテキストまたはOCR）を実行します。"""
         suffix = file_path.suffix.lower()
 
-        if suffix in SUPPORTED_PDF_EXTENSIONS:
+        if suffix in SUPPORTED_EXTENSIONS:
             result = extract_text_from_pdf(
                 pdf_path=file_path,
                 ocr_client=self.ocr_client,
                 max_pages=self.config.file_system.max_pages_per_pdf,
             )
             return result.full_text
-        elif suffix in SUPPORTED_IMAGE_EXTENSIONS:
-            logger.info("画像ファイル OCR 実行中: %s", file_path.name)
-            return self.ocr_client.extract_from_image_file(file_path)
         else:
-            raise ValueError(f"未対応のファイル拡張子です: {suffix}")
+            raise ValueError(f"未対応のファイル拡張子です（PDFのみ対応）: {suffix}")
 
     def process_file(
         self,
@@ -179,13 +175,6 @@ class DocumentProcessor:
                 category_dir.mkdir(parents=True, exist_ok=True)
 
             target_filename = classification.file_name
-            # 元ファイルが画像の場合は、拡張子を保持またはPDFリネームを調整
-            if file_path.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS:
-                if not target_filename.lower().endswith(file_path.suffix.lower()):
-                    target_filename = (
-                        f"{Path(target_filename).stem}{file_path.suffix.lower()}"
-                    )
-
             initial_dest = category_dir / target_filename
             final_dest = get_unique_destination_path(initial_dest)
 
