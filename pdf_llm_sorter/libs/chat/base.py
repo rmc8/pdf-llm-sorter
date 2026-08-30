@@ -105,6 +105,9 @@ def truncate_document_text(text: str, max_chars: int = 6000) -> str:
 class BaseChatClassifier(ABC):
     """チャット分類器の抽象基底クラス"""
 
+    provider_name: str = "llm"
+    model: str = ""
+
     @abstractmethod
     def classify_document(
         self,
@@ -114,3 +117,4 @@ class BaseChatClassifier(ABC):
     ) -> FileModel:
         """テキストを解析して分類結果 (FileModel) を返します。"""
         pass
+

@@ -166,17 +166,23 @@ class DocumentProcessor:
 
         try:
             # 1. テキスト抽出 (PDF テキストレイヤー / Vision OCR)
-            report("テキスト抽出中...")
+            ocr_label = getattr(self.ocr_client, "provider_name", "OCR").capitalize()
+            report(f"テキスト抽出 / {ocr_label} OCR...")
             extracted_text = self.extract_text(file_path)
             if not extracted_text.strip():
                 logger.warning("テキストが抽出できませんでした: %s", orig_name)
 
             # 2. LLM 分類・リネーム名決定
-            report(f"Ollama 分類推論中 ({self.chat_classifier.model})...")
+            chat_label = getattr(
+                self.chat_classifier, "provider_name", "LLM"
+            ).capitalize()
+            chat_model = getattr(self.chat_classifier, "model", "")
+            report(f"{chat_label} 分類推論中 ({chat_model})...")
             classification: FileModel = self.chat_classifier.classify_document(
                 document_text=extracted_text,
                 original_filename=orig_name,
             )
+
 
             # 3. 出力先ディレクトリ・パスの準備（フォルダがない場合は自動作成）
             report("ファイル配置中...")

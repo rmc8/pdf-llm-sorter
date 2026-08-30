@@ -41,6 +41,8 @@ class OllamaChatClassifier(BaseChatClassifier):
         self.max_chars_per_doc = max_chars_per_doc
         self.timeout = timeout
         self.max_retries = max_retries
+        self.provider_name = "ollama"
+
 
         # JSON 出力モードで初期化
         self.llm = ChatOllama(
