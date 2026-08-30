@@ -1,5 +1,13 @@
 # PDF LLM Sorter
 
+[![Python 3.14+](https://img.shields.io/badge/Python-3.14+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Ollama](https://img.shields.io/badge/LLM-Ollama-black.svg?logo=ollama&logoColor=white)](https://ollama.com/)
+[![Polars](https://img.shields.io/badge/DataFrame-Polars-CD792C.svg?logo=polars&logoColor=white)](https://pola.rs/)
+[![Typer](https://img.shields.io/badge/CLI-Typer-2496ED.svg)](https://typer.tiangolo.com/)
+
 OCRとローカルLLM（Ollama）を活用して、PDFや画像ファイルを自動解析・分類・リネームして整理するCLIツールです。
 
 ---
