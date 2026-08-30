@@ -208,6 +208,14 @@ def run(
             help="入力フォルダ配下のサブディレクトリを再帰的に走査する",
         ),
     ] = False,
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "-l",
+            "--limit",
+            help="処理するファイルの最大件数を制限（例: -l 10 で先頭10件のみ処理）",
+        ),
+    ] = None,
     ocr: Annotated[
         bool | None,
         typer.Option(
@@ -274,6 +282,11 @@ def run(
         if not target_files:
             console.print("[yellow]処理対象のファイルが見つかりませんでした。[/yellow]")
             return
+
+        if limit and limit > 0:
+            target_files = target_files[:limit]
+            logger.info("処理対象を先頭 %d 件に制限しました。", len(target_files))
+
 
         # プログレスバーの構成
         with Progress(
