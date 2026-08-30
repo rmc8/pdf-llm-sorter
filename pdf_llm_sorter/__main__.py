@@ -11,6 +11,15 @@ import typer
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 from rich.table import Table
 
 from pdf_llm_sorter.libs.config import AppConfig, load_config
@@ -202,7 +211,58 @@ def run(
 
     try:
         processor = DocumentProcessor(config=config, dry_run=dry_run)
-        results = processor.process_all(input_paths=inputs if inputs else None)
+
+        # 処理対象ファイルの走査
+        target_files = processor.scan_inputs(input_paths=inputs if inputs else None)
+        if not target_files:
+            console.print("[yellow]処理対象のファイルが見つかりませんでした。[/yellow]")
+            return
+
+        # プログレスバーの構成
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(bar_width=None),
+            MofNCompleteColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            console=console,
+            transient=False,
+        ) as progress:
+            main_task = progress.add_task(
+                "ドキュメント解析・整理中...", total=len(target_files)
+            )
+
+            def progress_callback(
+                current: int, total: int, file_path: Path, phase: str
+            ) -> None:
+                # 短縮ファイル名の生成
+                fname = file_path.name
+                display_name = fname if len(fname) <= 30 else f"{fname[:27]}..."
+                progress.update(
+                    main_task,
+                    completed=current - 1,
+                    description=f"[cyan]{display_name}[/cyan] : [magenta]{phase}[/magenta]",
+                )
+
+            results: list[ProcessResult] = []
+            try:
+                for idx, file_path in enumerate(target_files, 1):
+                    progress_callback(idx, len(target_files), file_path, "処理開始")
+                    res = processor.process_file(
+                        file_path=file_path,
+                        index=idx,
+                        total=len(target_files),
+                        progress_callback=progress_callback,
+                    )
+                    results.append(res)
+                    progress.update(main_task, completed=idx)
+            finally:
+                if results and not dry_run:
+                    try:
+                        processor.export_results(results)
+                    except Exception as exp_err:
+                        logger.error("ログ出力エラー: %s", exp_err)
 
         print_results_table(results)
 
@@ -221,7 +281,7 @@ def run(
 
     except KeyboardInterrupt:
         console.print(
-            "[bold yellow]⚠ ユーザーによって処理が中断されました。[/bold yellow]"
+            "\n[bold yellow]⚠ ユーザーによって処理が中断されました。処理済みログは安全に保存されました。[/bold yellow]"
         )
         raise typer.Exit(code=130) from None
     except typer.Exit:

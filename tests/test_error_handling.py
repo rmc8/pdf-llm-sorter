@@ -76,7 +76,7 @@ def test_process_all_finally_exports_on_exception(tmp_path: Path):
 
     call_count = 0
 
-    def mock_process_file(file_path: Path) -> ProcessResult:
+    def mock_process_file(file_path: Path, **kwargs) -> ProcessResult:
         nonlocal call_count
         call_count += 1
         if call_count == 2:

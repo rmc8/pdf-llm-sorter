@@ -2,6 +2,7 @@
 
 import logging
 import shutil
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -19,6 +20,9 @@ logger = logging.getLogger("pdf_llm_sorter.processor")
 SUPPORTED_PDF_EXTENSIONS = {".pdf"}
 SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".tiff", ".bmp"}
 ALL_SUPPORTED_EXTENSIONS = SUPPORTED_PDF_EXTENSIONS | SUPPORTED_IMAGE_EXTENSIONS
+
+# 進捗コールバック型: (現在のインデックス, 総ファイル数, 対象ファイルパス, 現在のフェーズ説明)
+ProgressCallback = Callable[[int, int, Path, str], None]
 
 
 class ProcessResult(BaseModel):
@@ -135,25 +139,38 @@ class DocumentProcessor:
         else:
             raise ValueError(f"未対応のファイル拡張子です: {suffix}")
 
-    def process_file(self, file_path: Path) -> ProcessResult:
+    def process_file(
+        self,
+        file_path: Path,
+        index: int = 1,
+        total: int = 1,
+        progress_callback: ProgressCallback | None = None,
+    ) -> ProcessResult:
         """1つのファイルを処理（OCR・LLM分類・フォルダ作成・配置）します。"""
         logger.info("=== 処理開始: %s ===", file_path.name)
         orig_path_str = str(file_path)
         orig_name = file_path.name
 
+        def report(phase: str) -> None:
+            if progress_callback:
+                progress_callback(index, total, file_path, phase)
+
         try:
             # 1. テキスト抽出 (PDF テキストレイヤー / Vision OCR)
+            report("テキスト抽出中...")
             extracted_text = self.extract_text(file_path)
             if not extracted_text.strip():
                 logger.warning("テキストが抽出できませんでした: %s", orig_name)
 
             # 2. LLM 分類・リネーム名決定
+            report(f"Ollama 分類推論中 ({self.chat_classifier.model})...")
             classification: FileModel = self.chat_classifier.classify_document(
                 document_text=extracted_text,
                 original_filename=orig_name,
             )
 
             # 3. 出力先ディレクトリ・パスの準備（フォルダがない場合は自動作成）
+            report("ファイル配置中...")
             output_base = (
                 Path(self.config.file_system.output_folder).expanduser().resolve()
             )
@@ -215,7 +232,11 @@ class DocumentProcessor:
                 error_message=str(e),
             )
 
-    def process_all(self, input_paths: list[Path] | None = None) -> list[ProcessResult]:
+    def process_all(
+        self,
+        input_paths: list[Path] | None = None,
+        progress_callback: ProgressCallback | None = None,
+    ) -> list[ProcessResult]:
         """全対象ファイルを順次処理し、結果をまとめてCSV/TSVに出力します。
 
         中断 (Ctrl+C) や予期せぬ例外が発生した場合でも、
@@ -230,7 +251,14 @@ class DocumentProcessor:
         try:
             for idx, file_path in enumerate(targets, 1):
                 logger.info("[%d/%d] ファイル処理中: %s", idx, len(targets), file_path.name)
-                res = self.process_file(file_path)
+                if progress_callback:
+                    progress_callback(idx, len(targets), file_path, "処理開始")
+                res = self.process_file(
+                    file_path=file_path,
+                    index=idx,
+                    total=len(targets),
+                    progress_callback=progress_callback,
+                )
                 results.append(res)
         finally:
             # 正常終了時はもちろん、中断・例外発生時でも処理済みレコードを安全にエクスポート
