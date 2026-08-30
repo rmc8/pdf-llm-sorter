@@ -204,12 +204,14 @@ def extract_text_from_pdf(
     dpi: int = 150,
     prompt: str = "画像内のテキストをそのまま書き起こしてください。",
     max_pages: int | None = None,
+    enable_ocr: bool = True,
 ) -> DocumentOCRResult:
     """PDF からテキストを抽出します。
 
     テキストレイヤーが存在する場合は直接テキストを抽出し、
     スキャン画像などテキストが不十分な場合（または force_ocr=True の場合）は
-    Ollama OCR モデル（deepseek-ocr 等）を使用して画像から文字を抽出します。
+    enable_ocr=True であれば Ollama OCR モデル（deepseek-ocr 等）を使用して画像から文字を抽出します。
+    enable_ocr=False の場合は OCR をスキップし、埋め込みテキストのみを高速に取得します。
 
     Args:
         pdf_path: 対象のPDFファイルパス
@@ -219,6 +221,7 @@ def extract_text_from_pdf(
         dpi: OCR用画像レンダリング時の解像度 (DPI)
         prompt: OCR モデルへの指示プロンプト
         max_pages: 解析対象の最大ページ数（None または 0 以下の場合は全ページ）
+        enable_ocr: 画像スキャンに対するOCR処理を実行するかどうか（False時は高速スキップ）
 
     Returns:
         DocumentOCRResult: ページごとの抽出結果および全テキスト
@@ -251,76 +254,93 @@ def extract_text_from_pdf(
             page = doc[idx]
             embedded_text = page.get_text("text").strip()
 
-            should_use_ocr = force_ocr or (len(embedded_text) < min_text_chars_per_page)
+            should_use_ocr = enable_ocr and (
+                force_ocr or (len(embedded_text) < min_text_chars_per_page)
+            )
 
-            if not should_use_ocr and embedded_text:
-                logger.info(
-                    "ページ %d/%d: 埋め込みテキストを取得 (%d 文字)",
-                    page_num,
-                    total_pages,
-                    len(embedded_text),
-                )
-                page_results.append(
-                    PageOCRResult(
-                        page_number=page_num,
-                        text=embedded_text,
-                        method="text_layer",
+            if not should_use_ocr:
+                if embedded_text:
+                    logger.info(
+                        "ページ %d/%d: 埋め込みテキストを取得 (%d 文字)",
+                        page_num,
+                        total_pages,
+                        len(embedded_text),
                     )
-                )
-            else:
-                if ocr_client is None:
-                    if embedded_text:
-                        logger.warning(
-                            "ページ %d/%d: OCR クライアントが未指定のため埋め込みテキスト (%d 文字) を使用します",
-                            page_num,
-                            total_pages,
-                            len(embedded_text),
+                    page_results.append(
+                        PageOCRResult(
+                            page_number=page_num,
+                            text=embedded_text,
+                            method="text_layer",
                         )
-                        page_results.append(
-                            PageOCRResult(
-                                page_number=page_num,
-                                text=embedded_text,
-                                method="text_layer",
-                            )
+                    )
+                else:
+                    logger.info(
+                        "ページ %d/%d: 埋め込みテキストなし (OCR スキップ設定のため空文字として処理)",
+                        page_num,
+                        total_pages,
+                    )
+                    page_results.append(
+                        PageOCRResult(
+                            page_number=page_num,
+                            text="",
+                            method="empty",
                         )
-                    else:
-                        logger.warning(
-                            "ページ %d/%d: テキストが存在せず、OCR クライアントも指定されていないためスキップします",
-                            page_num,
-                            total_pages,
-                        )
-                        page_results.append(
-                            PageOCRResult(
-                                page_number=page_num,
-                                text="",
-                                method="empty",
-                            )
-                        )
-                    continue
+                    )
+                continue
 
-                logger.info(
-                    "ページ %d/%d: Ollama OCR (%s) による文字認識を実行中...",
-                    page_num,
-                    total_pages,
-                    ocr_client.model,
-                )
-                page_image = render_pdf_page_to_image(page, dpi=dpi)
-                extracted_ocr_text = ocr_client.extract_from_pil_image(
-                    page_image, prompt=prompt
-                )
-                logger.info(
-                    "ページ %d/%d: OCR 抽出完了 (%d 文字)",
-                    page_num,
-                    total_pages,
-                    len(extracted_ocr_text),
-                )
-                page_results.append(
-                    PageOCRResult(
-                        page_number=page_num,
-                        text=extracted_ocr_text,
-                        method="deepseek_ocr",
+            if ocr_client is None:
+                if embedded_text:
+                    logger.warning(
+                        "ページ %d/%d: OCR クライアントが未指定のため埋め込みテキスト (%d 文字) を使用します",
+                        page_num,
+                        total_pages,
+                        len(embedded_text),
                     )
+                    page_results.append(
+                        PageOCRResult(
+                            page_number=page_num,
+                            text=embedded_text,
+                            method="text_layer",
+                        )
+                    )
+                else:
+                    logger.warning(
+                        "ページ %d/%d: テキストが存在せず、OCR クライアントも指定されていないためスキップします",
+                        page_num,
+                        total_pages,
+                    )
+                    page_results.append(
+                        PageOCRResult(
+                            page_number=page_num,
+                            text="",
+                            method="empty",
+                        )
+                    )
+                continue
+
+            logger.info(
+                "ページ %d/%d: Ollama OCR (%s) による文字認識を実行中...",
+                page_num,
+                total_pages,
+                ocr_client.model,
+            )
+            page_image = render_pdf_page_to_image(page, dpi=dpi)
+            extracted_ocr_text = ocr_client.extract_from_pil_image(
+                page_image, prompt=prompt
+            )
+            logger.info(
+                "ページ %d/%d: OCR 抽出完了 (%d 文字)",
+                page_num,
+                total_pages,
+                len(extracted_ocr_text),
+            )
+            page_results.append(
+                PageOCRResult(
+                    page_number=page_num,
+                    text=extracted_ocr_text,
+                    method="deepseek_ocr",
                 )
+            )
     finally:
         doc.close()
 

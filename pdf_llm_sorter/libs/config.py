@@ -25,6 +25,10 @@ class OllamaConfig(BaseModel):
     max_retries: int = Field(
         default=1, description="API通信エラー・タイムアウト時の最大リトライ回数"
     )
+    enable_ocr: bool = Field(
+        default=True,
+        description="画像スキャンPDFに対するOCR処理を有効にするか（無効時は埋め込みテキストのみ抽出して高速化）",
+    )
 
 
 class PromptConfig(BaseModel):

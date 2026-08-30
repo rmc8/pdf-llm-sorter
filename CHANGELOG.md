@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `pdf-llm-sorter` コマンドエントリーポイントの提供
 - **安全・柔軟な実行オプション**:
   - 対象ファイルを PDF（`.pdf`）に特化し、安定したテキスト抽出と高速なドキュメント整理を実現
+  - OCR スキップ（`--no-ocr` / `enable_ocr = false`）オプション: 画像スキャンに対するOCRをスキップし、埋め込みテキストレイヤーのみを抽出して全ドキュメントを爆速分類可能に
   - コピーモード（`--copy`、デフォルト）と移動モード（`--move`）の選択
   - 実際のファイル操作を行わずに結果を検証できるシミュレーションモード（`-n, --dry-run`）
   - サブディレクトリの再帰的走査（`-r, --recursive`）

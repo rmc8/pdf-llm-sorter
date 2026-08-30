@@ -58,6 +58,12 @@ def print_config_summary(config: AppConfig, dry_run: bool) -> None:
 
     table.add_row("Ollama Base URL", config.ollama.base_url)
     table.add_row("OCR Model", config.ollama.ocr_model or "(未設定)")
+    table.add_row(
+        "OCR Processing",
+        "[green]有効[/green]"
+        if config.ollama.enable_ocr
+        else "[yellow]無効（テキストレイヤーのみ抽出・高速）[/yellow]",
+    )
     table.add_row("Chat Model", config.ollama.chat_model or "(未設定)")
     table.add_row("Input Folder", config.file_system.input_folder)
     table.add_row("Output Folder", config.file_system.output_folder)
@@ -165,6 +171,13 @@ def run(
             help="入力フォルダ配下のサブディレクトリを再帰的に走査する",
         ),
     ] = False,
+    ocr: Annotated[
+        bool | None,
+        typer.Option(
+            "--ocr/--no-ocr",
+            help="画像スキャンPDFに対するOCR処理の有効/無効を切り替える（--no-ocr で高速化）",
+        ),
+    ] = None,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -206,6 +219,8 @@ def run(
         config.file_system.export_with_timestamp = False
     if recursive:
         config.file_system.recursive = True
+    if ocr is not None:
+        config.ollama.enable_ocr = ocr
 
     print_config_summary(config, dry_run=dry_run)
 

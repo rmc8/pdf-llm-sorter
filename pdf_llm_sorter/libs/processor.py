@@ -130,6 +130,7 @@ class DocumentProcessor:
                 pdf_path=file_path,
                 ocr_client=self.ocr_client,
                 max_pages=self.config.file_system.max_pages_per_pdf,
+                enable_ocr=self.config.ollama.enable_ocr,
             )
             return result.full_text
         else:
