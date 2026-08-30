@@ -183,7 +183,6 @@ class DocumentProcessor:
                 original_filename=orig_name,
             )
 
-
             # 3. 出力先ディレクトリ・パスの準備（フォルダがない場合は自動作成）
             report("ファイル配置中...")
             output_base = (

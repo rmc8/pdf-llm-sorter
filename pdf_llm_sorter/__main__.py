@@ -287,7 +287,6 @@ def run(
             target_files = target_files[:limit]
             logger.info("処理対象を先頭 %d 件に制限しました。", len(target_files))
 
-
         # プログレスバーの構成
         with Progress(
             SpinnerColumn(),

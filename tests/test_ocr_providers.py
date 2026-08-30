@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from pdf_llm_sorter.libs.chat import (
+    MistralChatClassifier,
     OllamaChatClassifier,
     OpenRouterChatClassifier,
     create_chat_classifier,
@@ -112,7 +113,7 @@ def test_create_chat_classifier():
 
     config.general.chat_provider = "mistral"
     clf_mis = create_chat_classifier(config)
-    assert isinstance(clf_mis, OpenRouterChatClassifier)
+    assert isinstance(clf_mis, MistralChatClassifier)
     assert clf_mis.provider_name == "mistral"
 
     config.general.chat_provider = "ollama"
@@ -145,6 +146,35 @@ def test_openrouter_chat_classifier_classify():
         assert res.file_name == "20260830_テスト社_請求書.pdf"
         assert res.category == "領収書"
         assert res.document_date == "2026-08-30"
+
+
+def test_mistral_chat_classifier_classify():
+    """MistralChatClassifier が JSON レスポンスから FileModel を生成できることをテスト"""
+    clf = MistralChatClassifier(
+        api_key="test_mistral_key",
+        model="mistral-small-latest",
+    )
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "choices": [
+            {
+                "message": {
+                    "content": '{"file_name": "20260830_ミストラル社_契約書.pdf", "category": "契約書", "document_date": "2026-08-30", "issuer": "ミストラル社", "summary": "契約要約", "tags": ["契約"]}'
+                }
+            }
+        ]
+    }
+
+    with patch("httpx.Client.post", return_value=mock_resp) as mock_post:
+        res = clf.classify_document("テスト契約書本文")
+        assert res.file_name == "20260830_ミストラル社_契約書.pdf"
+        assert res.category == "契約書"
+        assert res.document_date == "2026-08-30"
+        mock_post.assert_called_once()
+        headers = mock_post.call_args[1]["headers"]
+        assert headers["Authorization"] == "Bearer test_mistral_key"
 
 
 def test_load_env_file_with_dotenv(tmp_path: Path):

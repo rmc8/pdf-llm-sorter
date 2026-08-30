@@ -1,6 +1,7 @@
 from pdf_llm_sorter.libs.chat import (
     DEFAULT_SYSTEM_PROMPT,
     BaseChatClassifier,
+    MistralChatClassifier,
     OllamaChatClassifier,
     OpenRouterChatClassifier,
     create_chat_classifier,
@@ -41,6 +42,7 @@ __all__ = [
     "FileModel",
     "FileSystemConfig",
     "GeneralConfig",
+    "MistralChatClassifier",
     "MistralConfig",
     "MistralOCRClient",
     "OCRConfig",

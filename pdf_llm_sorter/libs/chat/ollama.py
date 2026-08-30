@@ -43,7 +43,6 @@ class OllamaChatClassifier(BaseChatClassifier):
         self.max_retries = max_retries
         self.provider_name = "ollama"
 
-
         # JSON 出力モードで初期化
         self.llm = ChatOllama(
             base_url=self.base_url,

@@ -117,4 +117,3 @@ class BaseChatClassifier(ABC):
     ) -> FileModel:
         """テキストを解析して分類結果 (FileModel) を返します。"""
         pass
-

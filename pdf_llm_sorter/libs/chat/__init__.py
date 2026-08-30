@@ -1,6 +1,6 @@
 """チャット・ドキュメント分類モジュール。
 
-Ollama および OpenRouter (OpenAI互換) 等の LLM を用いて
+Ollama, OpenRouter, Mistral 等の LLM を用いて
 OCR抽出テキストからファイル名と配置先カテゴリを自動決定します。
 """
 
@@ -12,6 +12,7 @@ from pdf_llm_sorter.libs.chat.base import (
     render_system_prompt,
     truncate_document_text,
 )
+from pdf_llm_sorter.libs.chat.mistral import MistralChatClassifier
 from pdf_llm_sorter.libs.chat.ollama import OllamaChatClassifier
 from pdf_llm_sorter.libs.chat.openrouter import OpenRouterChatClassifier
 from pdf_llm_sorter.libs.config import AppConfig
@@ -24,28 +25,14 @@ def create_chat_classifier(config: AppConfig) -> BaseChatClassifier:
         config: アプリケーション全体設定 (AppConfig)
 
     Returns:
-        BaseChatClassifier: OpenRouterChatClassifier または OllamaChatClassifier
+        BaseChatClassifier: OpenRouterChatClassifier, MistralChatClassifier, または OllamaChatClassifier
     """
     provider = getattr(config.general, "chat_provider", "ollama").lower()
-    sys_prompt = config.prompt.system_prompt
-    categories = config.file_system.categories
-    max_chars = config.prompt.max_chars_per_doc
 
     if provider == "openrouter":
         return OpenRouterChatClassifier.from_config(config)
     elif provider == "mistral":
-        # Mistral の Chat API (OpenAI互換エンドポイント)
-        return OpenRouterChatClassifier(
-            api_key=config.mistral.get_api_key(),
-            base_url="https://api.mistral.ai/v1",
-            model=config.mistral.chat_model or "mistral-small-latest",
-            system_prompt=sys_prompt,
-            categories=categories,
-            max_chars_per_doc=max_chars,
-            timeout=config.mistral.timeout,
-            max_retries=config.mistral.max_retries,
-            provider_name="mistral",
-        )
+        return MistralChatClassifier.from_config(config)
     else:
         return OllamaChatClassifier.from_config(config)
 
@@ -53,6 +40,7 @@ def create_chat_classifier(config: AppConfig) -> BaseChatClassifier:
 __all__ = [
     "DEFAULT_SYSTEM_PROMPT",
     "BaseChatClassifier",
+    "MistralChatClassifier",
     "OllamaChatClassifier",
     "OpenRouterChatClassifier",
     "clean_json_markdown",
