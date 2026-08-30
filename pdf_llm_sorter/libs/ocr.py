@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 import httpx
+import pymupdf
 from PIL import Image
 from pydantic import BaseModel, Field
-import pymupdf
 
 from pdf_llm_sorter.libs.config import OllamaConfig
 

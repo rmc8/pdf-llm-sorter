@@ -1,10 +1,10 @@
 """設定ファイル (config.toml) の読み込みおよびバリデーションを行うモジュール。"""
 
-from pathlib import Path
 import tomllib
-from typing_extensions import Any, Literal
+from pathlib import Path
 
 from pydantic import AliasChoices, BaseModel, Field
+from typing_extensions import Any, Literal
 
 
 class OllamaConfig(BaseModel):
