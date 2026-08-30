@@ -126,6 +126,7 @@ class DocumentProcessor:
             result = extract_text_from_pdf(
                 pdf_path=file_path,
                 ocr_client=self.ocr_client,
+                max_pages=self.config.file_system.max_pages_per_pdf,
             )
             return result.full_text
         elif suffix in SUPPORTED_IMAGE_EXTENSIONS:
@@ -215,21 +216,37 @@ class DocumentProcessor:
             )
 
     def process_all(self, input_paths: list[Path] | None = None) -> list[ProcessResult]:
-        """全対象ファイルを順次処理し、結果をまとめてCSV/TSVに出力します。"""
+        """全対象ファイルを順次処理し、結果をまとめてCSV/TSVに出力します。
+
+        中断 (Ctrl+C) や予期せぬ例外が発生した場合でも、
+        finally 節によってそこまでに処理完了した全レコードを確実にログ保存します。
+        """
         targets = self.scan_inputs(input_paths)
         if not targets:
             logger.info("処理対象のファイルがありませんでした。")
             return []
 
         results: list[ProcessResult] = []
-        for idx, file_path in enumerate(targets, 1):
-            logger.info("[%d/%d] ファイル処理中: %s", idx, len(targets), file_path.name)
-            res = self.process_file(file_path)
-            results.append(res)
-
-        # 結果を Polars でエクスポート
-        if results and not self.dry_run:
-            self.export_results(results)
+        try:
+            for idx, file_path in enumerate(targets, 1):
+                logger.info("[%d/%d] ファイル処理中: %s", idx, len(targets), file_path.name)
+                res = self.process_file(file_path)
+                results.append(res)
+        finally:
+            # 正常終了時はもちろん、中断・例外発生時でも処理済みレコードを安全にエクスポート
+            if results and not self.dry_run:
+                try:
+                    logger.info(
+                        "処理済みレコード (%d 件) のログエクスポートを実行します...",
+                        len(results),
+                    )
+                    self.export_results(results)
+                except Exception as export_err:
+                    logger.error(
+                        "ログエクスポート中にエラーが発生しました: %s",
+                        export_err,
+                        exc_info=True,
+                    )
 
         return results
 

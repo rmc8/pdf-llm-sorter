@@ -29,3 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **設定管理**:
   - TOML 形式の設定ファイル読み込み（`config.toml`）
   - 実用的なサンプルカテゴリー定義を含む `example.config.toml`
+- **エラーハンドリング & 安全機構の強化**:
+  - トークン上限・コンテキストあふれ防止: `max_chars_per_doc` による長文テキストのスマートサンプリング（先頭70%・末尾30%の重要情報保持）
+  - PDF解析ページ数制限: `max_pages_per_pdf` による巨大PDFの先頭ページ抽出制御
+  - 中断時ログ保護: `try ... finally` 構造により、`Ctrl+C` や例外中断時でも処理済みレコードを確実に CSV / TSV ログに書き出し
+- **ドキュメント**:
+  - README.md に Shields.io バッジ群（Python 3.14+, uv, Ruff, MIT, Ollama, Polars, Typer）を追加

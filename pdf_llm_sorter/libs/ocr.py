@@ -175,6 +175,7 @@ def extract_text_from_pdf(
     min_text_chars_per_page: int = 30,
     dpi: int = 150,
     prompt: str = "画像内のテキストをそのまま書き起こしてください。",
+    max_pages: int | None = None,
 ) -> DocumentOCRResult:
     """PDF からテキストを抽出します。
 
@@ -189,6 +190,7 @@ def extract_text_from_pdf(
         min_text_chars_per_page: 埋め込みテキストがこの文字数未満ならスキャンとみなしてOCRを実行
         dpi: OCR用画像レンダリング時の解像度 (DPI)
         prompt: OCR モデルへの指示プロンプト
+        max_pages: 解析対象の最大ページ数（None または 0 以下の場合は全ページ）
 
     Returns:
         DocumentOCRResult: ページごとの抽出結果および全テキスト
@@ -201,10 +203,24 @@ def extract_text_from_pdf(
     total_pages = len(doc)
     page_results: list[PageOCRResult] = []
 
-    logger.info("PDF テキスト抽出開始: %s (全 %d ページ)", path.name, total_pages)
+    pages_to_process = (
+        min(total_pages, max_pages)
+        if max_pages and max_pages > 0
+        else total_pages
+    )
+
+    if pages_to_process < total_pages:
+        logger.info(
+            "PDF テキスト抽出開始: %s (全 %d ページ中 先頭 %d ページを抽出)",
+            path.name,
+            total_pages,
+            pages_to_process,
+        )
+    else:
+        logger.info("PDF テキスト抽出開始: %s (全 %d ページ)", path.name, total_pages)
 
     try:
-        for idx in range(total_pages):
+        for idx in range(pages_to_process):
             page_num = idx + 1
             page = doc[idx]
             embedded_text = page.get_text("text").strip()

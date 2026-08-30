@@ -29,6 +29,7 @@ system_prompt = """あなたはPDFドキュメントの整理・分類を専門�
 ### カテゴリー
 {{categories}}
 """
+max_chars_per_doc = 6000            # LLM推論プロンプトに渡す最大文字数（超過時は先頭70%・末尾30%を自動サンプリング）
 
 [file_system]
 input_folder = "./input"
@@ -38,6 +39,7 @@ export_format = "csv"           # "csv", "tsv", "both", "none"
 export_path = "./log"                # 空文字の場合は output_folder 直下に出力。{timestamp}, {date} プレースホルダー利用可能
 export_with_timestamp = true    # 出力ファイル名に日時（例: classification_results_20260830_090928.csv）を付与
 recursive = false               # input_folder 配下のサブディレクトリまで再帰的に走査するかどうか
+max_pages_per_pdf = 5           # PDF解析対象の最大ページ数（0または未指定で全ページ解析）
 
 [file_system.categories]
 "領収書" = "レシートや納品書などの支払明細や領収書"

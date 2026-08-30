@@ -80,6 +80,42 @@ def clean_json_markdown(text: str) -> str:
     return text
 
 
+def truncate_document_text(text: str, max_chars: int = 6000) -> str:
+    """長文テキストを先頭と末尾の重要情報を保持しつつ最大文字数内に切り詰めます。
+
+    発行日・発行元・書類タイトルがある先頭部（約70%）と、
+    署名・捺印・合計金額等がある末尾部（約30%）を残し、中間を省略します。
+
+    Args:
+        text: 元のドキュメントテキスト
+        max_chars: 最大文字数（0以下の場合は切り詰めなし）
+
+    Returns:
+        str: 切り詰め後のテキスト
+    """
+    if max_chars <= 0 or len(text) <= max_chars:
+        return text
+
+    omission_msg = "\n\n... [中略: ドキュメント中間部分を省略] ...\n\n"
+    available_chars = max(0, max_chars - len(omission_msg))
+
+    # 先頭70%、末尾30%
+    head_chars = int(available_chars * 0.7)
+    tail_chars = available_chars - head_chars
+
+    head_part = text[:head_chars].rstrip()
+    tail_part = text[-tail_chars:].lstrip() if tail_chars > 0 else ""
+
+    truncated = f"{head_part}{omission_msg}{tail_part}"
+    logger.info(
+        "ドキュメントテキストを最大文字数制限 (%d 文字) に基づき切り詰めました: %d 文字 -> %d 文字",
+        max_chars,
+        len(text),
+        len(truncated),
+    )
+    return truncated
+
+
 class OllamaChatClassifier:
     """Ollama によるテキスト対話および構造化出力を管理するクラス"""
 
@@ -90,12 +126,14 @@ class OllamaChatClassifier:
         system_prompt: str = "",
         categories: list[str] | dict[str, str] | None = None,
         temperature: float = 0.1,
+        max_chars_per_doc: int = 6000,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.categories = categories
         self.system_prompt = render_system_prompt(system_prompt, self.categories)
         self.temperature = temperature
+        self.max_chars_per_doc = max_chars_per_doc
 
         # JSON 出力モードで初期化
         self.llm = ChatOllama(
@@ -113,13 +151,16 @@ class OllamaChatClassifier:
     ) -> OllamaChatClassifier:
         """設定オブジェクトからインスタンスを生成します。"""
         categories: list[str] | dict[str, str] = []
+        max_chars = 6000
         if isinstance(config, AppConfig):
             ollama_cfg = config.ollama
             sys_prompt = config.prompt.system_prompt
+            max_chars = config.prompt.max_chars_per_doc
             categories = config.file_system.categories
         else:
             ollama_cfg = config
             sys_prompt = prompt_config.system_prompt if prompt_config else ""
+            max_chars = prompt_config.max_chars_per_doc if prompt_config else 6000
 
         model = ollama_cfg.chat_model or "qwen3.5:latest"
         return cls(
@@ -127,6 +168,7 @@ class OllamaChatClassifier:
             model=model,
             system_prompt=sys_prompt,
             categories=categories,
+            max_chars_per_doc=max_chars,
         )
 
     def classify_document(
@@ -136,11 +178,16 @@ class OllamaChatClassifier:
         additional_instructions: str = "",
     ) -> FileModel:
         """OCR抽出テキストを解析し、FileModel（リネーム名・配置先等）の構造化データを返します。"""
+        # トークンあふれ防止のためのテキスト切り詰め
+        safe_text = truncate_document_text(
+            document_text, max_chars=self.max_chars_per_doc
+        )
+
         prompt_parts: list[str] = []
         if original_filename:
             prompt_parts.append(f"### 元のファイル名:\n{original_filename}\n")
 
-        prompt_parts.append(f"### ドキュメント本文:\n{document_text}\n")
+        prompt_parts.append(f"### ドキュメント本文:\n{safe_text}\n")
 
         if additional_instructions:
             prompt_parts.append(f"### 補足指示:\n{additional_instructions}\n")

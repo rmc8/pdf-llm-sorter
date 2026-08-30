@@ -25,6 +25,10 @@ class PromptConfig(BaseModel):
     """プロンプト設定"""
 
     system_prompt: str = Field(default="", description="分類用のシステムプロンプト")
+    max_chars_per_doc: int = Field(
+        default=6000,
+        description="LLM推論プロンプトに渡す最大文字数（超過時は先頭と末尾をサンプリング）",
+    )
 
 
 class FileSystemConfig(BaseModel):
@@ -58,6 +62,10 @@ class FileSystemConfig(BaseModel):
     recursive: bool = Field(
         default=False,
         description="input_folder 配下のサブディレクトリまで再帰的に走査するかどうか",
+    )
+    max_pages_per_pdf: int = Field(
+        default=5,
+        description="PDF解析対象の最大ページ数（0で全ページ解析）",
     )
     categories: list[str] | dict[str, str] = Field(
         default_factory=list,
