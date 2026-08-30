@@ -38,9 +38,9 @@ class FileSystemConfig(BaseModel):
         description="分類・リネーム後のPDFファイルを配置する出力フォルダ",
         validation_alias=AliasChoices("output_folder", "ouput_folder"),
     )
-    categories: list[str] = Field(
+    categories: list[str] | dict[str, str] = Field(
         default_factory=list,
-        description="分類先フォルダのカテゴリ候補リスト（指定された場合、LLMはこの中から選択）",
+        description="分類先フォルダのカテゴリ候補リストまたは説明付き辞書（指定された場合、LLMはこの中から選択）",
     )
 
 
