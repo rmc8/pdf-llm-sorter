@@ -10,6 +10,7 @@ dependencies = [
     "langchain-ollama>=1.1.0",
     "langgraph>=1.2.11",
     "pillow>=12.3.0",
+    "polars>=1.44.1",
     "pydantic>=2.13.5",
     "pymupdf>=1.28.2",
 ]

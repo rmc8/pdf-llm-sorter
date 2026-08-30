@@ -22,17 +22,24 @@ from pdf_llm_sorter.libs.ocr import (
     render_pdf_to_images,
 )
 
+from pdf_llm_sorter.libs.processor import (
+    DocumentProcessor,
+    ProcessResult,
+)
+
 __all__ = [
     "AppConfig",
     "BatchFileClassification",
     "DEFAULT_SYSTEM_PROMPT",
     "DocumentOCRResult",
+    "DocumentProcessor",
     "FileModel",
     "FileSystemConfig",
     "OllamaChatClassifier",
     "OllamaConfig",
     "OllamaOCRClient",
     "PageOCRResult",
+    "ProcessResult",
     "PromptConfig",
     "extract_text_from_pdf",
     "load_config",

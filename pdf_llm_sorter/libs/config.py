@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import tomllib
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import AliasChoices, BaseModel, Field
 
@@ -31,12 +31,32 @@ class FileSystemConfig(BaseModel):
     """ファイル入出力・フォルダ設定"""
 
     input_folder: str = Field(
-        default="./input", description="処理対象のPDFファイルが配置される入力フォルダ"
+        default="./input", description="処理対象のPDF/画像ファイルが配置される入力フォルダ"
     )
     output_folder: str = Field(
         default="./output",
         description="分類・リネーム後のPDFファイルを配置する出力フォルダ",
         validation_alias=AliasChoices("output_folder", "ouput_folder"),
+    )
+    action_mode: Literal["copy", "move"] = Field(
+        default="copy",
+        description="ファイルの配置方法 ('copy' で元ファイルを残す、'move' で移動整理)",
+    )
+    export_format: Literal["csv", "tsv", "both", "none"] = Field(
+        default="csv",
+        description="メタデータ一覧の出力形式 ('csv', 'tsv', 'both', 'none')",
+    )
+    export_path: str = Field(
+        default="",
+        description="メタデータ一覧の出力先ファイル/フォルダパス (空文字の場合は output_folder 直下に出力。{timestamp}, {date} プレースホルダー利用可能)",
+    )
+    export_with_timestamp: bool = Field(
+        default=True,
+        description="出力ファイル名に実行タイムスタンプ (例: classification_results_20260830_090928.csv) を付与するかどうか",
+    )
+    recursive: bool = Field(
+        default=False,
+        description="input_folder 配下のサブディレクトリまで再帰的に走査するかどうか",
     )
     categories: list[str] | dict[str, str] = Field(
         default_factory=list,
