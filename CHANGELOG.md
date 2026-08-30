@@ -1,0 +1,31 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.0] - 2026-08-30
+
+### Added
+- **ドキュメント解析 & 自動分類パイプライン**:
+  - PDF および各種画像ファイル（PNG, JPG, JPEG, WebP, TIFF, BMP）の走査・テキスト抽出・AI分類・配置処理
+  - PyMuPDF を利用した高速なデジタル PDF テキスト抽出
+  - Ollama Vision/OCR モデル（`deepseek-ocr` 等）を用いた画像・スキャンPDFの自動テキスト抽出
+  - Ollama Chat モデル（`qwen3.5` 等）と Pydantic スキーマ（`FileModel`）による構造化出力
+  - 書類の発行日・発行元・書類種別を考慮したインテリジェントなファイルリネームとフォルダ自動分類
+- **メタデータログ出力**:
+  - Polars を利用した分類メタデータの高速 CSV / TSV 出力
+  - 実行日時タイムスタンプ付きログ保存機能
+- **CLI & ユーザーインターフェース**:
+  - Typer を採用した型安全で直感的なコマンドラインインターフェース
+  - Rich との統合によるカラーログ出力、起動時設定パネル、処理結果サマリーテーブルの美しいターミナル表示
+  - `pdf-llm-sorter` コマンドエントリーポイントの提供
+- **安全・柔軟な実行オプション**:
+  - コピーモード（`--copy`、デフォルト）と移動モード（`--move`）の選択
+  - 実際のファイル操作を行わずに結果を検証できるシミュレーションモード（`-n, --dry-run`）
+  - サブディレクトリの再帰的走査（`-r, --recursive`）
+  - 出力先同名ファイルとの衝突を防ぐ連番自動付与（`_1`, `_2`）ロジック
+- **設定管理**:
+  - TOML 形式の設定ファイル読み込み（`config.toml`）
+  - 実用的なサンプルカテゴリー定義を含む `example.config.toml`

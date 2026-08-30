@@ -3,21 +3,29 @@
 OCRとLLM (Ollama) を活用してPDFファイルを解析・分類・整理するCLIアプリケーションのエントリーポイントです。
 """
 
-import argparse
 import logging
-import sys
 from pathlib import Path
+from typing import Annotated
 
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.table import Table
+import typer
 
 from pdf_llm_sorter.libs.config import AppConfig, load_config
 from pdf_llm_sorter.libs.processor import DocumentProcessor, ProcessResult
 
 console = Console()
 logger = logging.getLogger("pdf_llm_sorter")
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "config.toml"
+
+app = typer.Typer(
+    name="pdf-llm-sorter",
+    help="PDF LLM Sorter - OCRとLLMを活用したPDF・画像ドキュメント分類・整理ツール",
+    add_completion=False,
+    rich_markup_mode="rich",
+)
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -88,111 +96,113 @@ def print_results_table(results: list[ProcessResult]) -> None:
     console.print(table)
 
 
-def create_parser() -> argparse.ArgumentParser:
-    """コマンドライン引数パーサーを構築します。"""
-    default_config_path = Path(__file__).resolve().parent / "config.toml"
-    parser = argparse.ArgumentParser(
-        prog="pdf_llm_sorter",
-        description="PDF LLM Sorter - OCRとLLMを活用したPDF・画像ドキュメント分類・整理ツール",
-    )
-    parser.add_argument(
-        "-c",
-        "--config",
-        type=Path,
-        default=default_config_path,
-        help=f"設定ファイル (TOML) のパス (デフォルト: {default_config_path})",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=str,
-        default=None,
-        help="出力先フォルダパス（指定時は設定ファイルの output_folder を上書き）",
-    )
-    parser.add_argument(
-        "--copy",
-        action="store_true",
-        help="元ファイルを保持して出力先にコピーする (デフォルト)",
-    )
-    parser.add_argument(
-        "--move",
-        action="store_true",
-        help="元ファイルを出力先へ移動（整理）する",
-    )
-    parser.add_argument(
-        "--format",
-        choices=["csv", "tsv", "both", "none"],
-        default=None,
-        help="結果メタデータの出力形式 (csv, tsv, both, none)",
-    )
-    parser.add_argument(
-        "--no-timestamp",
-        action="store_true",
-        help="出力ファイル名にタイムスタンプを付与せず固定ファイル名で保存する",
-    )
-    parser.add_argument(
-        "-r",
-        "--recursive",
-        action="store_true",
-        help="入力フォルダ配下のサブディレクトリを再帰的に走査する",
-    )
-    parser.add_argument(
-        "-n",
-        "--dry-run",
-        action="store_true",
-        help="実際のファイル移動/コピーを行わずに推論と配置先をシミュレーション表示する",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="詳細なデバッグログを出力する",
-    )
-    parser.add_argument(
-        "inputs",
-        nargs="*",
-        type=Path,
-        help="処理対象のPDF/画像ファイルまたはディレクトリパス（未指定時は設定ファイルの input_folder を使用）",
-    )
-    return parser
-
-
-def main() -> int:
-    """メイン実行関数。"""
-    parser = create_parser()
-    args = parser.parse_args()
-
-    setup_logging(args.verbose)
+@app.command()
+def run(
+    inputs: Annotated[
+        list[Path] | None,
+        typer.Argument(
+            help="処理対象のPDF/画像ファイルまたはディレクトリパス（未指定時は設定ファイルの input_folder を使用）",
+        ),
+    ] = None,
+    config_path: Annotated[
+        Path,
+        typer.Option(
+            "-c",
+            "--config",
+            help="設定ファイル (TOML) のパス",
+        ),
+    ] = DEFAULT_CONFIG_PATH,
+    output: Annotated[
+        str | None,
+        typer.Option(
+            "-o",
+            "--output",
+            help="出力先フォルダパス（指定時は設定ファイルの output_folder を上書き）",
+        ),
+    ] = None,
+    copy: Annotated[
+        bool,
+        typer.Option(
+            "--copy",
+            help="元ファイルを保持して出力先にコピーする (デフォルト)",
+        ),
+    ] = False,
+    move: Annotated[
+        bool,
+        typer.Option(
+            "--move",
+            help="元ファイルを出力先へ移動（整理）する",
+        ),
+    ] = False,
+    export_format: Annotated[
+        str | None,
+        typer.Option(
+            "--format",
+            help="結果メタデータの出力形式 (csv, tsv, both, none)",
+        ),
+    ] = None,
+    no_timestamp: Annotated[
+        bool,
+        typer.Option(
+            "--no-timestamp",
+            help="出力ファイル名にタイムスタンプを付与せず固定ファイル名で保存する",
+        ),
+    ] = False,
+    recursive: Annotated[
+        bool,
+        typer.Option(
+            "-r",
+            "--recursive",
+            help="入力フォルダ配下のサブディレクトリを再帰的に走査する",
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "-n",
+            "--dry-run",
+            help="実際のファイル移動/コピーを行わずに推論と配置先をシミュレーション表示する",
+        ),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "-v",
+            "--verbose",
+            help="詳細なデバッグログを出力する",
+        ),
+    ] = False,
+) -> None:
+    """PDF LLM Sorter - OCRとLLMを活用してドキュメントを自動分類・整理します。"""
+    setup_logging(verbose)
 
     # 設定ファイルの読み込み
     try:
-        config: AppConfig = load_config(args.config)
+        config: AppConfig = load_config(config_path)
         logger.debug("設定内容:\n%s", config.model_dump_json(indent=2))
     except Exception as e:
         logger.error("設定ファイルの読み込みに失敗しました: %s", e)
-        return 1
+        raise typer.Exit(code=1)
 
     # CLI 引数による設定の上書き
-    if args.output:
-        config.file_system.output_folder = args.output
-    if args.move:
+    if output:
+        config.file_system.output_folder = output
+    if move:
         config.file_system.action_mode = "move"
-    elif args.copy:
+    elif copy:
         config.file_system.action_mode = "copy"
-    if args.format:
-        config.file_system.export_format = args.format
-    if args.no_timestamp:
+    if export_format:
+        config.file_system.export_format = export_format  # type: ignore[assignment]
+    if no_timestamp:
         config.file_system.export_with_timestamp = False
-    if args.recursive:
+    if recursive:
         config.file_system.recursive = True
 
-    print_config_summary(config, dry_run=args.dry_run)
+    print_config_summary(config, dry_run=dry_run)
 
     try:
-        processor = DocumentProcessor(config=config, dry_run=args.dry_run)
-        results = processor.process_all(
-            input_paths=args.inputs if args.inputs else None
-        )
+        processor = DocumentProcessor(config=config, dry_run=dry_run)
+        results = processor.process_all(input_paths=inputs if inputs else None)
 
         print_results_table(results)
 
@@ -203,22 +213,28 @@ def main() -> int:
             console.print(
                 f"[bold green]✔ 処理完了:[/bold green] 成功 {success_count} 件 / 合計 {len(results)} 件"
             )
-            return 0
         else:
             console.print(
                 f"[bold red]✖ 処理完了:[/bold red] 成功 {success_count} 件 / [bold red]エラー {error_count} 件[/bold red] / 合計 {len(results)} 件"
             )
-            return 1
+            raise typer.Exit(code=1)
 
     except KeyboardInterrupt:
         console.print(
             "[bold yellow]⚠ ユーザーによって処理が中断されました。[/bold yellow]"
         )
-        return 130
+        raise typer.Exit(code=130)
+    except typer.Exit:
+        raise
     except Exception as e:
         logger.error("処理中に予期せぬエラーが発生しました: %s", e, exc_info=True)
-        return 1
+        raise typer.Exit(code=1)
+
+
+def main() -> None:
+    """エントリーポイント関数。"""
+    app()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
