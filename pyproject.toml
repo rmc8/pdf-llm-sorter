@@ -1,0 +1,78 @@
+[project]
+name = "pdf-llm-sorter"
+version = "0.1.0"
+description = "OCRとOllama LLMを活用してPDFや画像ドキュメントを自動解析・分類・リネーム・整理するCLIツール"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.14"
+authors = [
+    { name = "rmc8" }
+]
+keywords = [
+    "pdf",
+    "ocr",
+    "llm",
+    "ollama",
+    "sorter",
+    "document-management",
+    "cli",
+    "typer",
+    "polars",
+    "pydantic"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "httpx>=0.28.1",
+    "langchain-ollama>=1.1.0",
+    "pillow>=12.3.0",
+    "polars>=1.44.1",
+    "pydantic>=2.13.5",
+    "pymupdf>=1.28.2",
+    "python-dotenv>=1.2.3",
+    "rich>=13.9.0",
+    "typer>=0.15.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.9.0",
+]
+
+[project.scripts]
+pdf-llm-sorter = "pdf_llm_sorter.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pdf_llm_sorter"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+

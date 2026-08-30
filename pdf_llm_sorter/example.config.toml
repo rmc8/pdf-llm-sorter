@@ -1,0 +1,69 @@
+[general]
+ocr_provider = "mistral"              # 使用するOCRプロバイダー ("mistral", "ollama")
+chat_provider = "openrouter"           # 使用する推論プロバイダー ("openrouter", "mistral", "ollama")
+dpi = 150                              # OCR用画像レンダリング解像度
+min_text_chars_per_page = 30           # 埋め込み文字数がこの値未満の場合にOCRを実行
+enable_ocr = true                      # 画像スキャンPDFのOCR処理を行うか（false: 埋め込みテキストのみ抽出して超高速化）
+
+[mistral]
+ocr_model = "mistral-ocr-latest"       # Mistral OCR モデル名
+chat_model = "mistral-small-latest"    # Mistral 推論モデル名
+
+[openrouter]
+chat_model = "qwen/qwen3.7-flash"      # OpenRouter 推論モデル名
+
+[ollama]
+base_url = "http://localhost:11434"
+ocr_model = "deepseek-ocr:latest"
+chat_model = "yuiseki/sarashina2.2:3b"
+timeout = 60.0                         # APIリクエストのタイムアウト秒数
+max_retries = 1                        # 通信エラーやタイムアウト発生時の自動リトライ回数
+enable_ocr = false                     # Ollama使用時のOCR有効フラグ
+
+[prompt]
+system_prompt = """あなたはPDFドキュメントの整理・分類を専門とするAIアシスタントです。
+提供されたドキュメントのテキスト内容を詳細に解析し、ファイルの適切な配置先カテゴリと分かりやすいリネーム後ファイル名を決定してください。
+
+### ルール:
+1. file_name:
+   - 書類の内容が一目でわかる具体的な名前にしてください。
+   - 推奨フォーマット: [日付]_[発行元または組織名]_[書類の種類・件名].pdf
+   - 日付が特定できる場合は先頭に YYYYMMDD を付与してください。
+   - 必ず末尾に .pdf を含めてください。
+2. category:
+   - 設定されたカテゴリー一覧の中から最も適したものを正確に1つ選択してください。
+3. document_date:
+   - 書類に記載された発行日・作成日・契約日など（YYYY-MM-DD形式、不明なら空文字）。
+4. issuer:
+   - 書類の発行元企業名・団体名・送信者。
+5. summary:
+   - 書類の重要事項（金額、期日、対象者、内容）の1〜2行程度の簡潔な要約。
+6. tags:
+   - 検索に役立つキーワードタグ（3〜5個程度）。
+7. 表記・誤字補正:
+   - OCRの読み取り誤り（例: カタカナのハ/ノの誤認など）がある場合は、文脈や一般的な組織名・日本語の自然な表記に合わせて自動補正してください。
+
+### カテゴリー
+{{categories}}
+"""
+max_chars_per_doc = 6000            # LLM推論プロンプトに渡す最大文字数（超過時は先頭70%・末尾30%を自動サンプリング）
+
+[file_system]
+input_folder = "./input"
+output_folder = "./output"
+action_mode = "copy"             # "copy" (元ファイルを保持) または "move" (移動)
+export_format = "csv"           # "csv", "tsv", "both", "none"
+export_path = "./log"                # 空文字の場合は output_folder 直下に出力。{timestamp}, {date} プレースホルダー利用可能
+export_with_timestamp = true    # 出力ファイル名に日時（例: classification_results_20260830_090928.csv）を付与
+recursive = false               # input_folder 配下のサブディレクトリまで再帰的に走査するかどうか
+max_pages_per_pdf = 5           # PDF解析対象の最大ページ数（0または未指定で全ページ解析）
+
+[file_system.categories]
+"領収書" = "レシートや納品書などの支払明細や領収書"
+"請求書" = "取引先やサービスからの請求書や支払案内"
+"契約書" = "業務委託や賃貸などの各種契約書類や覚書"
+"給与明細" = "給与や賞与の支払明細書"
+"保険証券" = "生命保険や損害保険などの保険証券や契約内容通知書"
+"税金関係" = "確定申告書や源泉徴収票などの税務関連書類"
+"取扱説明書" = "家電や機器などの操作マニュアルや仕様書"
+"その他" = "上記いずれのカテゴリーにも明確に該当しない一般的な文書"
