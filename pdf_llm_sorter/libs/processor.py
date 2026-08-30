@@ -10,10 +10,14 @@ from typing import Any, Literal
 import polars as pl
 from pydantic import BaseModel, Field
 
-from pdf_llm_sorter.libs.chat import OllamaChatClassifier
+from pdf_llm_sorter.libs.chat import BaseChatClassifier, create_chat_classifier
 from pdf_llm_sorter.libs.config import AppConfig
 from pdf_llm_sorter.libs.model import FileModel
-from pdf_llm_sorter.libs.ocr import OllamaOCRClient, extract_text_from_pdf
+from pdf_llm_sorter.libs.ocr import (
+    BaseOCRClient,
+    create_ocr_client,
+    extract_text_from_pdf,
+)
 
 logger = logging.getLogger("pdf_llm_sorter.processor")
 
@@ -69,17 +73,15 @@ class DocumentProcessor:
     def __init__(
         self,
         config: AppConfig,
-        ocr_client: OllamaOCRClient | None = None,
-        chat_classifier: OllamaChatClassifier | None = None,
+        ocr_client: BaseOCRClient | None = None,
+        chat_classifier: BaseChatClassifier | None = None,
         dry_run: bool = False,
     ) -> None:
         self.config = config
         self.dry_run = dry_run
 
-        self.ocr_client = ocr_client or OllamaOCRClient.from_config(config.ollama)
-        self.chat_classifier = chat_classifier or OllamaChatClassifier.from_config(
-            config
-        )
+        self.ocr_client = ocr_client or create_ocr_client(config)
+        self.chat_classifier = chat_classifier or create_chat_classifier(config)
 
     def scan_inputs(self, input_paths: list[Path] | None = None) -> list[Path]:
         """指定されたパス一覧または設定の input_folder から処理対象のファイル一覧を収集します。"""
@@ -126,11 +128,21 @@ class DocumentProcessor:
         suffix = file_path.suffix.lower()
 
         if suffix in SUPPORTED_EXTENSIONS:
+            enable_ocr = getattr(
+                self.config.ocr,
+                "enable_ocr",
+                getattr(self.config.ollama, "enable_ocr", True),
+            )
+            dpi = getattr(self.config.ocr, "dpi", 150)
+            min_chars = getattr(self.config.ocr, "min_text_chars_per_page", 30)
+
             result = extract_text_from_pdf(
                 pdf_path=file_path,
                 ocr_client=self.ocr_client,
                 max_pages=self.config.file_system.max_pages_per_pdf,
-                enable_ocr=self.config.ollama.enable_ocr,
+                enable_ocr=enable_ocr,
+                dpi=dpi,
+                min_text_chars_per_page=min_chars,
             )
             return result.full_text
         else:

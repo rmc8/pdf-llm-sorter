@@ -1,63 +1,42 @@
-"""PDFおよび画像ファイルからテキスト・文字情報を抽出するOCRモジュール。
+"""Ollama 経由の Vision / OCR モデルを利用したドキュメント OCR クライアント。"""
 
-PyMuPDF による PDF のページレンダリングおよびテキストレイヤー抽出と、
-Ollama 経由の Vision / OCR モデル（例: deepseek-ocr:latest）による画像文字認識を提供します。
-"""
-
-import base64
-import io
 import logging
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import httpx
 import pymupdf
-from PIL import Image
-from pydantic import BaseModel, Field
 
 from pdf_llm_sorter.libs.config import OllamaConfig
+from pdf_llm_sorter.libs.ocr.base import (
+    BaseOCRClient,
+    DocumentOCRResult,
+    PageOCRResult,
+    bytes_to_base64,
+    image_to_base64,
+    render_pdf_page_to_image,
+    render_pdf_to_images,
+)
 
-logger = logging.getLogger("pdf_llm_sorter.ocr")
+logger = logging.getLogger("pdf_llm_sorter.ocr.ollama")
 
-
-class PageOCRResult(BaseModel):
-    """PDF各ページのテキスト抽出結果"""
-
-    page_number: int = Field(description="1始まりのページ番号")
-    text: str = Field(description="抽出されたテキスト内容")
-    method: Literal["text_layer", "deepseek_ocr", "empty"] = Field(
-        description="テキスト取得方法"
-    )
-
-
-class DocumentOCRResult(BaseModel):
-    """ドキュメント全体のテキスト抽出結果"""
-
-    file_path: str = Field(description="対象ファイルのパス")
-    total_pages: int = Field(description="総ページ数")
-    full_text: str = Field(description="結合された全テキスト")
-    pages: list[PageOCRResult] = Field(
-        default_factory=list, description="ページごとの抽出結果"
-    )
-
-
-def image_to_base64(image: Image.Image, format: str = "PNG") -> str:
-    """PIL Image を Base64 文字列にエンコードします。"""
-    buf = io.BytesIO()
-    # RGB 形式であることを確認
-    if image.mode not in ("RGB", "L"):
-        image = image.convert("RGB")
-    image.save(buf, format=format)
-    return base64.b64encode(buf.getvalue()).decode("utf-8")
+# 互換性のためのエイリアス再エクスポート
+__all__ = [
+    "DocumentOCRResult",
+    "OllamaOCRClient",
+    "PageOCRResult",
+    "bytes_to_base64",
+    "extract_text_from_pdf",
+    "image_to_base64",
+    "render_pdf_page_to_image",
+    "render_pdf_to_images",
+]
 
 
-def bytes_to_base64(data: bytes) -> str:
-    """画像バイトデータを Base64 文字列にエンコードします。"""
-    return base64.b64encode(data).decode("utf-8")
-
-
-class OllamaOCRClient:
+class OllamaOCRClient(BaseOCRClient):
     """Ollama API を利用した OCR クライアント"""
+
+    provider_name: str = "ollama"
 
     def __init__(
         self,
@@ -93,29 +72,6 @@ class OllamaOCRClient:
         """画像バイトデータから OCR を実行してテキストを抽出します。"""
         img_b64 = bytes_to_base64(image_bytes)
         return self._call_generate_api(img_b64, prompt)
-
-    def extract_from_pil_image(
-        self,
-        image: Image.Image,
-        prompt: str = "画像内のテキストをそのまま書き起こしてください。",
-    ) -> str:
-        """PIL Image から OCR を実行してテキストを抽出します。"""
-        img_b64 = image_to_base64(image)
-        return self._call_generate_api(img_b64, prompt)
-
-    def extract_from_image_file(
-        self,
-        file_path: Path | str,
-        prompt: str = "画像内のテキストをそのまま書き起こしてください。",
-    ) -> str:
-        """画像ファイル（PNG, JPEG 等）から OCR を実行します。"""
-        path = Path(file_path).resolve()
-        if not path.exists():
-            raise FileNotFoundError(f"画像ファイルが見つかりません: {path}")
-
-        with open(path, "rb") as f:
-            image_bytes = f.read()
-        return self.extract_from_image_bytes(image_bytes, prompt)
 
     def _call_generate_api(self, image_base64: str, prompt: str) -> str:
         """Ollama の /api/generate エンドポイントを呼び出します（リトライ対応）。"""
@@ -153,7 +109,7 @@ class OllamaOCRClient:
             except Exception as e:
                 if attempt < total_attempts:
                     logger.warning(
-                        "OCR 呼び出しに失敗しました (試行 %d/%d)。1秒後に再試行します: %s",
+                        "OCR 呼び出しに失敗しました (試行 %d/%d)。再試行します: %s",
                         attempt,
                         total_attempts,
                         e,
@@ -167,38 +123,9 @@ class OllamaOCRClient:
                     raise
 
 
-def render_pdf_page_to_image(page: pymupdf.Page, dpi: int = 150) -> Image.Image:
-    """PDF ページを指定 DPI の PIL Image に変換します。"""
-    # 72 DPI がデフォルト。dpi/72 で拡大縮小マトリクスを作成
-    zoom = dpi / 72.0
-    mat = pymupdf.Matrix(zoom, zoom)
-    pix = page.get_pixmap(matrix=mat, alpha=False)
-    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-    return img
-
-
-def render_pdf_to_images(pdf_path: Path | str, dpi: int = 150) -> list[Image.Image]:
-    """PDF の全ページを PIL Image のリストとしてレンダリングします。"""
-    path = Path(pdf_path).resolve()
-    if not path.exists():
-        raise FileNotFoundError(f"PDFファイルが見つかりません: {path}")
-
-    doc = pymupdf.open(path)
-    images: list[Image.Image] = []
-    try:
-        for page_idx in range(len(doc)):
-            page = doc[page_idx]
-            img = render_pdf_page_to_image(page, dpi=dpi)
-            images.append(img)
-    finally:
-        doc.close()
-
-    return images
-
-
 def extract_text_from_pdf(
     pdf_path: Path | str,
-    ocr_client: OllamaOCRClient | None = None,
+    ocr_client: BaseOCRClient | None = None,
     force_ocr: bool = False,
     min_text_chars_per_page: int = 30,
     dpi: int = 150,
@@ -210,12 +137,12 @@ def extract_text_from_pdf(
 
     テキストレイヤーが存在する場合は直接テキストを抽出し、
     スキャン画像などテキストが不十分な場合（または force_ocr=True の場合）は
-    enable_ocr=True であれば Ollama OCR モデル（deepseek-ocr 等）を使用して画像から文字を抽出します。
+    enable_ocr=True であれば OCR クライアント（Mistral / DeepSeek / Ollama）を使用して文字を抽出します。
     enable_ocr=False の場合は OCR をスキップし、埋め込みテキストのみを高速に取得します。
 
     Args:
         pdf_path: 対象のPDFファイルパス
-        ocr_client: OllamaOCRClient インスタンス (OCRが必要な場合に使用)
+        ocr_client: BaseOCRClient インスタンス (OCRが必要な場合に使用)
         force_ocr: True の場合、テキストレイヤーがあっても常に OCR を実行
         min_text_chars_per_page: 埋め込みテキストがこの文字数未満ならスキャンとみなしてOCRを実行
         dpi: OCR用画像レンダリング時の解像度 (DPI)
@@ -229,6 +156,12 @@ def extract_text_from_pdf(
     path = Path(pdf_path).resolve()
     if not path.exists():
         raise FileNotFoundError(f"PDFファイルが見つかりません: {path}")
+
+    # force_ocr でかつクライアントが PDF 直接一括解析に対応している場合（Mistral等）
+    if enable_ocr and force_ocr and ocr_client is not None:
+        direct_res = ocr_client.extract_from_pdf_file(path, max_pages=max_pages)
+        if direct_res is not None:
+            return direct_res
 
     doc = pymupdf.open(path)
     total_pages = len(doc)
@@ -249,6 +182,19 @@ def extract_text_from_pdf(
         logger.info("PDF テキスト抽出開始: %s (全 %d ページ)", path.name, total_pages)
 
     try:
+        # 全体で埋め込みテキストが完全にゼロの場合かつ PDF一括対応クライアントの場合
+        if enable_ocr and ocr_client is not None:
+            # 試しに先頭ページの埋め込み文字数をチェック
+            sample_text = "".join(
+                doc[i].get_text("text").strip() for i in range(min(pages_to_process, 3))
+            )
+            if len(sample_text) < min_text_chars_per_page:
+                direct_res = ocr_client.extract_from_pdf_file(
+                    path, max_pages=pages_to_process
+                )
+                if direct_res is not None:
+                    return direct_res
+
         for idx in range(pages_to_process):
             page_num = idx + 1
             page = doc[idx]
@@ -318,10 +264,12 @@ def extract_text_from_pdf(
                     )
                 continue
 
+            provider = getattr(ocr_client, "provider_name", "ocr")
             logger.info(
-                "ページ %d/%d: Ollama OCR (%s) による文字認識を実行中...",
+                "ページ %d/%d: %s OCR (%s) による文字認識を実行中...",
                 page_num,
                 total_pages,
+                provider.capitalize(),
                 ocr_client.model,
             )
             page_image = render_pdf_page_to_image(page, dpi=dpi)
@@ -334,11 +282,15 @@ def extract_text_from_pdf(
                 total_pages,
                 len(extracted_ocr_text),
             )
+            method_name = f"{provider}_ocr"
+            if method_name not in ("mistral_ocr", "deepseek_ocr", "ollama_ocr"):
+                method_name = "ollama_ocr"
+
             page_results.append(
                 PageOCRResult(
                     page_number=page_num,
                     text=extracted_ocr_text,
-                    method="deepseek_ocr",
+                    method=method_name,  # type: ignore[arg-type]
                 )
             )
     finally:

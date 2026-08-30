@@ -1,10 +1,24 @@
+[general]
+ocr_provider = "mistral"              # 使用するOCRプロバイダー ("mistral", "ollama")
+chat_provider = "openrouter"           # 使用する推論プロバイダー ("openrouter", "mistral", "ollama")
+dpi = 150                              # OCR用画像レンダリング解像度
+min_text_chars_per_page = 30           # 埋め込み文字数がこの値未満の場合にOCRを実行
+enable_ocr = true                      # 画像スキャンPDFのOCR処理を行うか（false: 埋め込みテキストのみ抽出して超高速化）
+
+[mistral]
+ocr_model = "mistral-ocr-latest"       # Mistral OCR モデル名
+chat_model = "mistral-small-latest"    # Mistral 推論モデル名
+
+[openrouter]
+chat_model = "qwen/qwen3.7-flash"      # OpenRouter 推論モデル名
+
 [ollama]
 base_url = "http://localhost:11434"
 ocr_model = "deepseek-ocr:latest"
 chat_model = "yuiseki/sarashina2.2:3b"
-timeout = 60.0                       # APIリクエストのタイムアウト秒数
-max_retries = 1                     # 通信エラーやタイムアウト発生時の自動リトライ回数
-enable_ocr = false                  # 画像スキャンPDFのOCR処理を行うか（false: 埋め込みテキストのみ抽出して超高速化）
+timeout = 60.0                         # APIリクエストのタイムアウト秒数
+max_retries = 1                        # 通信エラーやタイムアウト発生時の自動リトライ回数
+enable_ocr = false                     # Ollama使用時のOCR有効フラグ
 
 [prompt]
 system_prompt = """あなたはPDFドキュメントの整理・分類を専門とするAIアシスタントです。

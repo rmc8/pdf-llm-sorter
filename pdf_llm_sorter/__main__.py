@@ -56,15 +56,37 @@ def print_config_summary(config: AppConfig, dry_run: bool) -> None:
     table.add_column("Key", style="bold cyan", no_wrap=True)
     table.add_column("Value", style="green")
 
-    table.add_row("Ollama Base URL", config.ollama.base_url)
-    table.add_row("OCR Model", config.ollama.ocr_model or "(未設定)")
+    # OCR プロバイダーとモデル
+    ocr_prov = config.ocr.provider.lower()
+    if ocr_prov == "mistral":
+        ocr_model = config.mistral.model or "(デフォルト: mistral-ocr-latest)"
+        ocr_info = f"Mistral ({config.mistral.endpoint})"
+    else:
+        ocr_model = config.ollama.ocr_model or "(未設定)"
+        ocr_info = f"Ollama ({config.ollama.base_url})"
+
+    # チャット・推論プロバイダーとモデル
+    chat_prov = getattr(config.general, "chat_provider", "ollama").lower()
+    if chat_prov == "openrouter":
+        chat_model = config.openrouter.model or "(デフォルト: qwen/qwen3.7-flash)"
+        chat_info = f"OpenRouter ({config.openrouter.base_url})"
+    elif chat_prov == "mistral":
+        chat_model = config.mistral.chat_model or "(デフォルト: mistral-small-latest)"
+        chat_info = "Mistral"
+    else:
+        chat_model = config.ollama.chat_model or "(未設定)"
+        chat_info = f"Ollama ({config.ollama.base_url})"
+
+    table.add_row("OCR Provider", ocr_info)
+    table.add_row("OCR Model", ocr_model)
     table.add_row(
         "OCR Processing",
         "[green]有効[/green]"
-        if config.ollama.enable_ocr
+        if config.ocr.enable_ocr
         else "[yellow]無効（テキストレイヤーのみ抽出・高速）[/yellow]",
     )
-    table.add_row("Chat Model", config.ollama.chat_model or "(未設定)")
+    table.add_row("Chat Provider", chat_info)
+    table.add_row("Chat Model", chat_model)
     table.add_row("Input Folder", config.file_system.input_folder)
     table.add_row("Output Folder", config.file_system.output_folder)
     table.add_row("Action Mode", config.file_system.action_mode)
@@ -133,6 +155,21 @@ def run(
             "-o",
             "--output",
             help="出力先フォルダパス（指定時は設定ファイルの output_folder を上書き）",
+        ),
+    ] = None,
+    provider: Annotated[
+        str | None,
+        typer.Option(
+            "-p",
+            "--provider",
+            help="OCR プロバイダーの指定 (mistral, ollama)",
+        ),
+    ] = None,
+    chat_provider: Annotated[
+        str | None,
+        typer.Option(
+            "--chat-provider",
+            help="チャット・推論プロバイダーの指定 (openrouter, mistral, ollama)",
         ),
     ] = None,
     copy: Annotated[
@@ -209,6 +246,10 @@ def run(
     # CLI 引数による設定の上書き
     if output:
         config.file_system.output_folder = output
+    if provider:
+        config.ocr.provider = provider.lower()  # type: ignore[assignment]
+    if chat_provider:
+        config.general.chat_provider = chat_provider.lower()
     if move:
         config.file_system.action_mode = "move"
     elif copy:
@@ -220,6 +261,7 @@ def run(
     if recursive:
         config.file_system.recursive = True
     if ocr is not None:
+        config.ocr.enable_ocr = ocr
         config.ollama.enable_ocr = ocr
 
     print_config_summary(config, dry_run=dry_run)
