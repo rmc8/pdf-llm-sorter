@@ -31,7 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Typer を採用した型安全で直感的なコマンドラインインターフェース
   - Rich との統合によるカラーログ出力、起動時設定パネル（OCR / Chat プロバイダー表示）、処理結果サマリーテーブル
   - Rich `Progress` によるリアルタイムな進捗バー（件数・パーセンテージ・経過時間）および現在フェーズのステータス表示
-  - コマンドラインオプション: `--provider`, `--chat-provider`, `--ocr/--no-ocr`, `--dry-run`, `--move`, `--copy`, `--recursive` 等
+  - コマンドラインオプション: `-l, --limit`, `--provider`, `--chat-provider`, `--ocr/--no-ocr`, `--dry-run`, `--move`, `--copy`, `--recursive` 等
+
 - **安全・柔軟な実行オプション**:
   - OCR スキップ（`--no-ocr` / `enable_ocr = false`）オプション: 画像スキャンに対するOCRをスキップし、埋め込みテキストレイヤーのみを抽出して爆速分類
   - 出力先同名ファイルとの衝突を防ぐ連番自動付与（`_1`, `_2`）ロジック
