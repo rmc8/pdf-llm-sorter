@@ -231,7 +231,6 @@ def run(
         raise typer.Exit(code=1) from e
 
 
-
 def main() -> None:
     """エントリーポイント関数。"""
     app()
