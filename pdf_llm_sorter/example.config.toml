@@ -1,7 +1,7 @@
 [ollama]
 base_url = "http://localhost:11434"
 ocr_model = "deepseek-ocr:latest"
-chat_model = "qwen3.5:latest"
+chat_model = "yuiseki/sarashina2.2:3b"
 timeout = 60.0                       # APIリクエストのタイムアウト秒数
 max_retries = 1                     # 通信エラーやタイムアウト発生時の自動リトライ回数
 
