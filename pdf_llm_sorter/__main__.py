@@ -8,9 +8,15 @@ import logging
 import sys
 from pathlib import Path
 
-from pdf_llm_sorter.libs.config import AppConfig, load_config
-from pdf_llm_sorter.libs.processor import DocumentProcessor
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.panel import Panel
+from rich.table import Table
 
+from pdf_llm_sorter.libs.config import AppConfig, load_config
+from pdf_llm_sorter.libs.processor import DocumentProcessor, ProcessResult
+
+console = Console()
 logger = logging.getLogger("pdf_llm_sorter")
 
 
@@ -19,9 +25,67 @@ def setup_logging(verbose: bool = False) -> None:
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+        format="%(message)s",
+        datefmt="[%X]",
+        handlers=[
+            RichHandler(console=console, rich_tracebacks=True, show_path=verbose)
+        ],
     )
+
+
+def print_config_summary(config: AppConfig, dry_run: bool) -> None:
+    """起動時の設定サマリーをリッチなテーブル/パネルで表示します。"""
+    table = Table(show_header=False, box=None, padding=(0, 1))
+    table.add_column("Key", style="bold cyan", no_wrap=True)
+    table.add_column("Value", style="green")
+
+    table.add_row("Ollama Base URL", config.ollama.base_url)
+    table.add_row("OCR Model", config.ollama.ocr_model or "(未設定)")
+    table.add_row("Chat Model", config.ollama.chat_model or "(未設定)")
+    table.add_row("Input Folder", config.file_system.input_folder)
+    table.add_row("Output Folder", config.file_system.output_folder)
+    table.add_row("Action Mode", config.file_system.action_mode)
+    table.add_row("Export Format", config.file_system.export_format)
+    table.add_row("Recursive Scan", "有効" if config.file_system.recursive else "無効")
+    if dry_run:
+        table.add_row("Mode", "[bold yellow]DRY RUN (シミュレーション)[/bold yellow]")
+
+    console.print(
+        Panel(
+            table, title="[bold blue]PDF LLM Sorter 実行設定[/bold blue]", expand=False
+        )
+    )
+
+
+def print_results_table(results: list[ProcessResult]) -> None:
+    """処理結果一覧をリッチなテーブルで表示します。"""
+    if not results:
+        return
+
+    table = Table(title="処理結果サマリー", show_lines=True)
+    table.add_column("#", justify="right", style="dim", no_wrap=True)
+    table.add_column("元ファイル", style="cyan")
+    table.add_column("カテゴリ", style="magenta")
+    table.add_column("決定ファイル名", style="green")
+    table.add_column("状態", justify="center")
+
+    for idx, r in enumerate(results, 1):
+        if r.status == "success":
+            status_str = "[bold green]成功[/bold green]"
+        elif r.status == "skipped":
+            status_str = "[yellow]スキップ[/yellow]"
+        else:
+            status_str = f"[bold red]エラー[/bold red]\n[dim]{r.error_message}[/dim]"
+
+        table.add_row(
+            str(idx),
+            r.original_filename,
+            r.category or "-",
+            r.file_name or "-",
+            status_str,
+        )
+
+    console.print(table)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -99,12 +163,10 @@ def main() -> int:
     args = parser.parse_args()
 
     setup_logging(args.verbose)
-    logger.info("PDF LLM Sorter を起動しています...")
 
     # 設定ファイルの読み込み
     try:
         config: AppConfig = load_config(args.config)
-        logger.info("設定ファイルを正常に読み込みました: %s", args.config)
         logger.debug("設定内容:\n%s", config.model_dump_json(indent=2))
     except Exception as e:
         logger.error("設定ファイルの読み込みに失敗しました: %s", e)
@@ -124,34 +186,34 @@ def main() -> int:
     if args.recursive:
         config.file_system.recursive = True
 
-    logger.info("Ollama Base URL : %s", config.ollama.base_url)
-    logger.info("OCR Model       : %s", config.ollama.ocr_model or "(未設定)")
-    logger.info("Chat Model      : %s", config.ollama.chat_model or "(未設定)")
-    logger.info("Input Folder    : %s", config.file_system.input_folder)
-    logger.info("Output Folder   : %s", config.file_system.output_folder)
-    logger.info("Action Mode     : %s", config.file_system.action_mode)
-    logger.info("Export Format   : %s", config.file_system.export_format)
-    if args.dry_run:
-        logger.info("Mode            : DRY RUN (シミュレーション)")
+    print_config_summary(config, dry_run=args.dry_run)
 
     try:
         processor = DocumentProcessor(config=config, dry_run=args.dry_run)
-        results = processor.process_all(input_paths=args.inputs if args.inputs else None)
+        results = processor.process_all(
+            input_paths=args.inputs if args.inputs else None
+        )
+
+        print_results_table(results)
 
         success_count = sum(1 for r in results if r.status == "success")
         error_count = sum(1 for r in results if r.status == "error")
 
-        logger.info(
-            "=== 処理完了: 成功 %d 件 / エラー %d 件 / 合計 %d 件 ===",
-            success_count,
-            error_count,
-            len(results),
-        )
-
-        return 0 if error_count == 0 else 1
+        if error_count == 0:
+            console.print(
+                f"[bold green]✔ 処理完了:[/bold green] 成功 {success_count} 件 / 合計 {len(results)} 件"
+            )
+            return 0
+        else:
+            console.print(
+                f"[bold red]✖ 処理完了:[/bold red] 成功 {success_count} 件 / [bold red]エラー {error_count} 件[/bold red] / 合計 {len(results)} 件"
+            )
+            return 1
 
     except KeyboardInterrupt:
-        logger.warning("ユーザーによって処理が中断されました。")
+        console.print(
+            "[bold yellow]⚠ ユーザーによって処理が中断されました。[/bold yellow]"
+        )
         return 130
     except Exception as e:
         logger.error("処理中に予期せぬエラーが発生しました: %s", e, exc_info=True)

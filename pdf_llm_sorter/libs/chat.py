@@ -7,7 +7,7 @@ OCR 抽出テキストからファイル名と配置先ディレクトリを自�
 import json
 import logging
 import re
-from typing import Any, TypeVar
+from typing_extensions import Any, TypeVar
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama

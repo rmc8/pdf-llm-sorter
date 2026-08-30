@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import tomllib
-from typing import Any, Literal
+from typing_extensions import Any, Literal
 
 from pydantic import AliasChoices, BaseModel, Field
 
@@ -31,7 +31,8 @@ class FileSystemConfig(BaseModel):
     """ファイル入出力・フォルダ設定"""
 
     input_folder: str = Field(
-        default="./input", description="処理対象のPDF/画像ファイルが配置される入力フォルダ"
+        default="./input",
+        description="処理対象のPDF/画像ファイルが配置される入力フォルダ",
     )
     output_folder: str = Field(
         default="./output",

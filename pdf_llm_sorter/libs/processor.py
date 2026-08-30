@@ -74,7 +74,9 @@ class DocumentProcessor:
         self.dry_run = dry_run
 
         self.ocr_client = ocr_client or OllamaOCRClient.from_config(config.ollama)
-        self.chat_classifier = chat_classifier or OllamaChatClassifier.from_config(config)
+        self.chat_classifier = chat_classifier or OllamaChatClassifier.from_config(
+            config
+        )
 
     def scan_inputs(self, input_paths: list[Path] | None = None) -> list[Path]:
         """指定されたパス一覧または設定の input_folder から処理対象のファイル一覧を収集します。"""
@@ -105,7 +107,10 @@ class DocumentProcessor:
             elif path.is_dir():
                 pattern = "**/*" if self.config.file_system.recursive else "*"
                 for child in path.glob(pattern):
-                    if child.is_file() and child.suffix.lower() in ALL_SUPPORTED_EXTENSIONS:
+                    if (
+                        child.is_file()
+                        and child.suffix.lower() in ALL_SUPPORTED_EXTENSIONS
+                    ):
                         targets.append(child)
 
         # 重複除去とソート
@@ -159,7 +164,9 @@ class DocumentProcessor:
             # 元ファイルが画像の場合は、拡張子を保持またはPDFリネームを調整
             if file_path.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS:
                 if not target_filename.lower().endswith(file_path.suffix.lower()):
-                    target_filename = f"{Path(target_filename).stem}{file_path.suffix.lower()}"
+                    target_filename = (
+                        f"{Path(target_filename).stem}{file_path.suffix.lower()}"
+                    )
 
             initial_dest = category_dir / target_filename
             final_dest = get_unique_destination_path(initial_dest)
@@ -197,7 +204,9 @@ class DocumentProcessor:
             )
 
         except Exception as e:
-            logger.error("処理中にエラーが発生しました (%s): %s", orig_name, e, exc_info=True)
+            logger.error(
+                "処理中にエラーが発生しました (%s): %s", orig_name, e, exc_info=True
+            )
             return ProcessResult(
                 original_path=orig_path_str,
                 original_filename=orig_name,
@@ -228,7 +237,9 @@ class DocumentProcessor:
         """Polars を使用して処理結果を CSV / TSV 形式で出力します。"""
         export_fmt = self.config.file_system.export_format
         if export_fmt == "none":
-            logger.info("export_format が 'none' に設定されているためエクスポートをスキップします。")
+            logger.info(
+                "export_format が 'none' に設定されているためエクスポートをスキップします。"
+            )
             return []
 
         # 新規結果レコードの辞書リスト作成
@@ -271,17 +282,28 @@ class DocumentProcessor:
                 )
 
                 if is_directory:
-                    base_name = f"classification_results_{ts_str}.{fmt}" if with_timestamp else f"classification_results.{fmt}"
+                    base_name = (
+                        f"classification_results_{ts_str}.{fmt}"
+                        if with_timestamp
+                        else f"classification_results.{fmt}"
+                    )
                     target_file = target_file / base_name
                 else:
                     if target_file.suffix.lower() != f".{fmt}":
                         target_file = target_file.with_suffix(f".{fmt}")
                     # プレースホルダーが含まれておらず、かつタイムスタンプ付与が有効な場合はファイル名に付与
-                    if with_timestamp and not any(p in raw_export_path for p in ["{timestamp}", "{datetime}", "{date}"]):
+                    if with_timestamp and not any(
+                        p in raw_export_path
+                        for p in ["{timestamp}", "{datetime}", "{date}"]
+                    ):
                         stem = target_file.stem
                         target_file = target_file.with_name(f"{stem}_{ts_str}.{fmt}")
             else:
-                base_name = f"classification_results_{ts_str}.{fmt}" if with_timestamp else f"classification_results.{fmt}"
+                base_name = (
+                    f"classification_results_{ts_str}.{fmt}"
+                    if with_timestamp
+                    else f"classification_results.{fmt}"
+                )
                 target_file = output_base / base_name
 
             target_file.parent.mkdir(parents=True, exist_ok=True)
@@ -309,7 +331,9 @@ class DocumentProcessor:
 
             combined_df.write_csv(target_file, separator=sep)
             logger.info(
-                "結果を %s にエクスポートしました (計 %d 行)", target_file, len(combined_df)
+                "結果を %s にエクスポートしました (計 %d 行)",
+                target_file,
+                len(combined_df),
             )
             exported_files.append(target_file)
 
